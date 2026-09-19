@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="btcGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F7931A"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="45" fill="url(#btcGradient)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+  <path d="M50 25 L55 35 L50 40 L45 35 Z M42 40 L47 60 L53 60 L58 40 L53 38 L47 38 Z M45 62 L50 68 L55 62 L53 58 L47 58Z" fill="white" opacity="0.9"/>
+  <path d="M35 45 Q50 42 65 45 Q60 55 50 56 Q40 55 35 45 Z" fill="white" opacity="0.3"/>
+</svg>
