@@ -61,6 +61,8 @@ export interface SwapConfig {
     blockExplorerUrl: string;
     /** Solana blockchain explorer (for Solana SPL token addresses) */
     solanaExplorerUrl: string;
+    /** Solana JSON-RPC endpoint */
+    solanaRpcUrl: string;
     /** Solana Token-2022 program ID */
     token2022ProgramId: string;
     /** Solana legacy SPL Token program ID */
@@ -117,8 +119,10 @@ export const SWAP_CONFIG: SwapConfig = {
     blockExplorerUrl: "https://etherscan.io",
     /** Solana blockchain explorer (for Solana SPL token addresses) */
     solanaExplorerUrl: "https://solscan.io",
+    /** Solana JSON-RPC endpoint (public mainnet-beta) */
+    solanaRpcUrl: "https://api.mainnet-beta.solana.com",
     /** Solana Token-2022 program ID */
-    token2022ProgramId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    token2022ProgramId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCxEpPxuEb",
     /** Solana legacy SPL Token program ID */
     tokenLegacyProgramId: "TokenkegQfy2P4DT9Ej6mwoCliNV4z6wN67kEgsyqv9q",
   },
