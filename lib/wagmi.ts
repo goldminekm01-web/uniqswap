@@ -94,6 +94,49 @@ export function getUniswapWalletProvider(): any | null {
   return null;
 }
 
+/**
+ * Detect if the user is on a mobile device.
+ *
+ * On mobile, wallet apps (Phantom, MetaMask, Uniswap Wallet) do NOT inject
+ * their provider into the browser. Instead, they use deep links (universal
+ * links) to open their in-app browser, where the provider IS injected.
+ *
+ * This detection allows the connect flow to switch to deep-link mode on
+ * mobile devices.
+ */
+export function isMobile(): boolean {
+  if (typeof window === "undefined") return false;
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
+/**
+ * Build the deep-link URL for opening a wallet app on mobile.
+ *
+ * Each wallet has a universal link format:
+ * - Phantom:  https://phantom.app/ul/v1/connect?redirect=<URL>
+ * - MetaMask:  https://metamask.app.link/dapp/<URL>
+ * - Uniswap:  https://uniswap.app.link/dapp/<URL>
+ *
+ * After the user approves the connection in the wallet app, the wallet opens
+ * its in-app browser at the `redirect` URL, where the wallet provider is
+ * injected and connection completes normally.
+ */
+export function getWalletDeepLink(walletId: string, redirectUrl?: string): string | undefined {
+  const origin = redirectUrl || (typeof window !== "undefined" ? window.location.origin : "");
+  if (!origin) return undefined;
+
+  switch (walletId) {
+    case "phantom":
+      return `https://phantom.app/ul/v1/connect?redirect=${encodeURIComponent(origin)}`;
+    case "metamask":
+      return `https://metamask.app.link/dapp/${origin}`;
+    case "uniswap":
+      return `https://uniswap.app.link/dapp/${origin}`;
+    default:
+      return undefined;
+  }
+}
+
 export function isAnyWalletInstalled(): boolean {
   return (
     typeof window !== "undefined" &&

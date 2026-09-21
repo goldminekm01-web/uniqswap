@@ -25,6 +25,8 @@ import {
   isPhantomInstalled,
   isUniswapWalletInstalled,
   getUniswapWalletProvider,
+  isMobile,
+  getWalletDeepLink,
 } from "@/lib/wagmi";
 import { usePhantomSolana } from "@/lib/hooks";
 
@@ -44,21 +46,30 @@ interface WalletOption {
   installed: boolean;
   isSolana?: boolean; // true = Solana-only wallet (Phantom), no wagmi/EVM
   installUrl?: string;
+  /** Deep-link URL for mobile wallet connection (universal links). */
+  mobileConnectUrl?: string;
 }
 
 function useWalletOptions(connectingConnector: string | null) {
-  // Initialize state synchronously so the first render reflects actual wallet state
-  const [mmInstalled, setMmInstalled] = useState(isMetaMaskInstalled());
-  const [phantomInstalled, setPhantomInstalled] = useState(isPhantomInstalled());
+  // On mobile, browsers don't have injected wallet providers.
+  // We treat all wallets as "installed" so the modal shows "Connect" instead
+  // of "Not installed" — clicking opens the wallet's deep link instead.
+  const mobile = isMobile();
+
+  // Initialize state synchronously so the first render reflects actual wallet state.
+  // On mobile, all wallets are treated as available (deep-link mode).
+  const [mmInstalled, setMmInstalled] = useState(mobile || isMetaMaskInstalled());
+  const [phantomInstalled, setPhantomInstalled] = useState(mobile || isPhantomInstalled());
   const [uniswapInstalled, setUniswapInstalled] = useState(
-    isUniswapWalletInstalled(),
+    mobile || isUniswapWalletInstalled(),
   );
 
   useEffect(() => {
     const detect = () => {
-      setMmInstalled(isMetaMaskInstalled());
-      setPhantomInstalled(isPhantomInstalled());
-      setUniswapInstalled(isUniswapWalletInstalled());
+      const mobile = isMobile();
+      setMmInstalled(mobile || isMetaMaskInstalled());
+      setPhantomInstalled(mobile || isPhantomInstalled());
+      setUniswapInstalled(mobile || isUniswapWalletInstalled());
     };
 
     // Immediate recheck (after mount, DOM ready)
@@ -106,6 +117,7 @@ function useWalletOptions(connectingConnector: string | null) {
       connector: injected({ target: "metaMask" }),
       installed: mmInstalled,
       installUrl: "https://metamask.io/download/",
+      mobileConnectUrl: getWalletDeepLink("metamask"),
     },
     {
       id: "phantom",
@@ -115,6 +127,7 @@ function useWalletOptions(connectingConnector: string | null) {
       isSolana: true,
       installed: phantomInstalled,
       installUrl: "https://phantom.app/download",
+      mobileConnectUrl: getWalletDeepLink("phantom"),
     },
     {
       id: "uniswap",
@@ -123,6 +136,7 @@ function useWalletOptions(connectingConnector: string | null) {
       connector: uniswapConnector,
       installed: uniswapInstalled,
       installUrl: "https://uniswap.org/wallet",
+      mobileConnectUrl: getWalletDeepLink("uniswap"),
     },
   ];
 
@@ -153,9 +167,27 @@ export function WalletConnectButton({
       setConnectError(null);
       reset(); // Clear any previous mutation error
 
+      const mobile = isMobile();
+
       // ─── Phantom — pure Solana connection (no wagmi/EVM) ───
       // Uses window.phantom.solana directly. No ProviderNotFoundError possible.
       if (walletId === "phantom") {
+        // Mobile: Phantom doesn't inject into mobile browsers.
+        // Open the Phantom deep link — Phantom's in-app browser opens,
+        // the user approves, and Phantom redirects to our site where
+        // window.phantom.solana IS injected. Auto-connect then completes.
+        if (mobile && !isPhantomInstalled()) {
+          const deepLink = getWalletDeepLink("phantom");
+          if (deepLink) {
+            window.open(deepLink, "_blank");
+          }
+          setConnectError(
+            "Phantom wallet opened. Approve the connection in Phantom, " +
+            "then the wallet will reconnect automatically when you return here.",
+          );
+          return;
+        }
+
         const solanaOk = await connectPhantomSolana();
         if (solanaOk) {
           setShowModal(false);
@@ -167,7 +199,21 @@ export function WalletConnectButton({
         return;
       }
 
-      // ─── EVM wallets (MetaMask, Uniswap Wallet) ───
+      // ─── Mobile: open deep link for EVM wallets ───
+      if (mobile && !isMetaMaskInstalled() && !isUniswapWalletInstalled()) {
+        const deepLink = getWalletDeepLink(walletId || "");
+        if (deepLink) {
+          window.open(deepLink, "_blank");
+        }
+        const walletName = walletId === "metamask" ? "MetaMask" : "Uniswap Wallet";
+        setConnectError(
+          `${walletName} opened. Approve the connection in the app, ` +
+          "then the wallet will reconnect automatically when you return here.",
+        );
+        return;
+      }
+
+      // ─── EVM wallets (MetaMask, Uniswap Wallet) — desktop ───
       if (connector) {
         await connectAsync({ connector });
         // connectAsync may resolve even when wagmi sets an internal error
@@ -462,14 +508,13 @@ function ConnectModal({
                     : "rounded-2xl border border-white/5 bg-white/3 p-0.5"
                 }
               >
-                {wallet.installed && (wallet.connector || wallet.isSolana) ? (
+                {wallet.installed ? (
                   <button
                     onClick={() => {
-                      if (wallet.isSolana) {
-                        void onConnect(null, wallet.id); // Solana wallet — no wagmi
-                      } else if (wallet.connector) {
-                        void onConnect(wallet.connector, wallet.id);
-                      }
+                      // On mobile, wallet.connector may be null (no injected
+                      // provider). handleConnect detects mobile + no provider
+                      // and opens the wallet's deep link instead.
+                      void onConnect(wallet.connector ?? null, wallet.id);
                     }}
                     disabled={connectingConnector !== null}
                     className="flex w-full items-center gap-4 rounded-xl bg-transparent px-4 py-3.5 text-left transition-all disabled:opacity-50"
