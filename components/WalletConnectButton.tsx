@@ -473,14 +473,11 @@ function ConnectDropdown({
         </button>
       </div>
       <div className="my-1 border-t border-white/5" />
-      <div className="px-3 py-2 text-xs">
-        <span className="block text-gray-400">Connected to</span>
-        <span className="font-medium text-white">{displayName}</span>
-      </div>
+      {/* Remove the "Connected to Phantom Solana" text — disconnect button is prominent */}
       <button
         onClick={onDisconnect}
         disabled={disconnecting}
-        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-gray-300 opacity-100 transition-all duration-200 hover:bg-white/5 hover:text-white disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:border-white/30 hover:bg-white/15 disabled:opacity-50"
       >
         {disconnecting ? (
           <Loader2 className="h-4 w-4 animate-spin" />
