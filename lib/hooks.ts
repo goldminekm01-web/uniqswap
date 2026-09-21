@@ -10,7 +10,7 @@ import {
 import { formatBalance, formatDisplayBalance } from "@/lib/utils";
 import type { DetectedTokenInfo, TokenConfig } from "@/types";
 import type { TokenKey } from "@/lib/swap";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getPhantomSolanaProvider } from "@/lib/wagmi";
 
 /**
@@ -210,8 +210,13 @@ export function usePhantomSolana() {
   // Track when a mobile deep-link connection is pending (Phantom app opened,
   // provider not yet available in the in-app browser). Enables 500 BT-c fallback.
   const [isMobilePending, setIsMobilePending] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  // Prevent syncState() from overriding a user-initiated disconnect when
+  // Phantom's provider.isConnected hasn't updated yet (it lags behind).
+  const userDisconnectedRef = useRef(false);
 
   const connect = useCallback(async (onlyIfTrusted = false): Promise<boolean> => {
+    userDisconnectedRef.current = false;
     const provider = getPhantomSolanaProvider();
     if (!provider) return false;
     setIsLoading(true);
@@ -248,14 +253,11 @@ export function usePhantomSolana() {
   }, []);
 
   const disconnect = useCallback(() => {
-    // Update React state FIRST so all hook instances' UIs update immediately.
+    userDisconnectedRef.current = true;
+    setIsDisconnecting(true);
     setIsConnected(false);
     setPublicKey(null);
     setIsMobilePending(false);
-    // Call Phantom's disconnect() to clean up provider state (best-effort).
-    // Do NOT await — if provider.disconnect() hangs on mobile, the await
-    // would prevent React from flushing the state updates above.
-    // The state is already updated; provider.disconnect() is just cleanup.
     const provider = getPhantomSolanaProvider();
     if (provider) {
       try {
@@ -265,6 +267,8 @@ export function usePhantomSolana() {
         }
       } catch {}
     }
+    // Reset disconnecting state after Phantom has had time to process
+    setTimeout(() => setIsDisconnecting(false), 800);
   }, []);
 
   /**
@@ -286,6 +290,10 @@ export function usePhantomSolana() {
   // Also handle async Phantom provider injection (Phantom may inject after first render)
   useEffect(() => {
     const syncState = () => {
+      // Don't let polling/sync override a user-initiated disconnect.
+      // Phantom's provider.isConnected may lag by 500ms-15s, causing
+      // syncState to falsely reconnect the user right after they disconnect.
+      if (userDisconnectedRef.current) return;
       const provider = getPhantomSolanaProvider();
       if (provider?.isConnected || provider?.publicKey) {
         setIsConnected(true);
@@ -300,11 +308,14 @@ export function usePhantomSolana() {
     // the user connects/disconnects — not just via 5s polling which may expire
     // before the user approves the connection.
     const handleConnect = () => {
+      userDisconnectedRef.current = false;
+      setIsDisconnecting(false);
       const provider = getPhantomSolanaProvider();
       setIsConnected(true);
       setPublicKey(provider?.publicKey?.toString() || null);
     };
     const handleDisconnect = () => {
+      userDisconnectedRef.current = true;
       setIsConnected(false);
       setPublicKey(null);
     };
@@ -364,7 +375,7 @@ export function usePhantomSolana() {
     };
   }, []);
 
-  return { isConnected, publicKey, isLoading, connect, disconnect, initiateMobilePhantomConnect, isMobilePending };
+  return { isConnected, publicKey, isLoading, isDisconnecting, connect, disconnect, initiateMobilePhantomConnect, isMobilePending };
 }
 
 /**

@@ -160,6 +160,10 @@ export function WalletConnectButton({
   );
   const [connectError, setConnectError] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  // Force-disconnect fallback: if wagmi's disconnectAsync() mutation fails
+  // to clear the account state, this flag ensures the UI still shows
+  // "Connect Wallet" instead of the stale connected state.
+  const [forceDisconnected, setForceDisconnected] = useState(false);
 
   // Wrap disconnect to provide loading feedback + force-close dropdown.
   // Both wagmi's disconnect() (returns void) and Phantom's disconnectPhantomSolana()
@@ -168,23 +172,24 @@ export function WalletConnectButton({
     setDisconnecting(true);
     setConnectError(null);
     setShowDropdown(false);
+    setForceDisconnected(true);
     try {
       const result = disconnectFn();
       if (result instanceof Promise) {
         await result.catch((e: any) =>
-          console.warn("Disconnect warn:", e?.message || e),
+          console.warn("Disconnect:", e?.message || e),
         );
       }
     } catch (e: any) {
-      console.warn("Disconnect error:", e?.message || e);
+      console.warn("Disconnect:", e?.message || e);
     } finally {
-      // Reset after a brief delay so the spinner is visible
       setTimeout(() => setDisconnecting(false), 300);
     }
   };
 
   const handleConnect = async (connector: CreateConnectorFn<any> | null, walletId?: string) => {
     try {
+      setForceDisconnected(false);
       setConnectingConnector(walletId || (connector ? connector.name : "Wallet"));
       setConnectError(null);
       reset(); // Clear any previous mutation error
@@ -281,7 +286,7 @@ export function WalletConnectButton({
   };
 
   // --- Connected state ---
-  if (isConnected && address) {
+  if (!forceDisconnected && isConnected && address) {
     const displayName =
       chainId === 11155111 ? "Sepolia Testnet" : "Ethereum Mainnet";
 
@@ -323,7 +328,7 @@ export function WalletConnectButton({
   // --- Phantom mobile: deep link opened, awaiting in-app browser connection ---
   // Phantom app was opened via universal link but provider isn't yet available
   // in the current browser. Show a "connecting" button instead of the modal.
-  if (solanaConnected && !solanaPubkey && isMobilePending) {
+  if (solanaConnected && !solanaPubkey && isMobilePending && !forceDisconnected) {
     return (
       <button
         data-wallet-trigger
@@ -343,7 +348,7 @@ export function WalletConnectButton({
   }
 
   // --- Phantom Solana connected (EVM not available) ---
-  if (solanaConnected && solanaPubkey && !isConnected) {
+  if (!forceDisconnected && solanaConnected && solanaPubkey && !isConnected) {
     return (
       <div className="relative">
         <button
