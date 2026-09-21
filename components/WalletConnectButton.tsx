@@ -158,8 +158,30 @@ export function WalletConnectButton({
   const [connectingConnector, setConnectingConnector] = useState<string | null>(
     null,
   );
-
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  // Wrap disconnect to provide loading feedback + force-close dropdown.
+  // Both wagmi's disconnect() (returns void) and Phantom's disconnectPhantomSolana()
+  // (async) are handled — the wrapper checks if the result is a Promise.
+  const handleDisconnect = async (disconnectFn: () => any) => {
+    setDisconnecting(true);
+    setConnectError(null);
+    setShowDropdown(false);
+    try {
+      const result = disconnectFn();
+      if (result instanceof Promise) {
+        await result.catch((e: any) =>
+          console.warn("Disconnect warn:", e?.message || e),
+        );
+      }
+    } catch (e: any) {
+      console.warn("Disconnect error:", e?.message || e);
+    } finally {
+      // Reset after a brief delay so the spinner is visible
+      setTimeout(() => setDisconnecting(false), 300);
+    }
+  };
 
   const handleConnect = async (connector: CreateConnectorFn<any> | null, walletId?: string) => {
     try {
@@ -268,7 +290,7 @@ export function WalletConnectButton({
         <button
           data-wallet-trigger
           onClick={() => setShowDropdown(!showDropdown)}
-          className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
+          className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
         >
           <span className="hidden sm:inline">
             {shortenAddress(address)}
@@ -290,6 +312,8 @@ export function WalletConnectButton({
             copied={copied}
             copyAddress={copyAddress}
             disconnect={disconnect}
+            disconnecting={disconnecting}
+            onDisconnect={() => handleDisconnect(disconnect)}
           />
         )}
       </div>
@@ -304,7 +328,7 @@ export function WalletConnectButton({
       <button
         data-wallet-trigger
         onClick={() => setShowModal(true)}
-        className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
+        className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
       >
         <span className="hidden sm:inline">Open Phantom…</span>
         {compact && <span className="inline sm:hidden">Connecting…</span>}
@@ -325,7 +349,7 @@ export function WalletConnectButton({
         <button
           data-wallet-trigger
           onClick={() => setShowDropdown(!showDropdown)}
-          className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
+          className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
         >
           <span className="hidden sm:inline">
             {shortenAddress(solanaPubkey, 6)}
@@ -349,6 +373,8 @@ export function WalletConnectButton({
               setTimeout(() => setCopied(false), 2000);
             }}
             disconnect={disconnectPhantomSolana}
+            disconnecting={disconnecting}
+            onDisconnect={() => handleDisconnect(disconnectPhantomSolana)}
           />
         )}
       </div>
@@ -360,7 +386,7 @@ export function WalletConnectButton({
     return (
       <button
         disabled
-        className="flex items-center gap-2 rounded-full border border-white/10 bg-dark-800/30 px-4 py-2 text-sm font-medium text-gray-300 backdrop-blur"
+        className="flex items-center gap-2 rounded-xl border border-white/10 bg-dark-800/30 px-4 py-2 text-sm font-medium text-gray-300 backdrop-blur"
       >
         <Loader2 className="h-4 w-4 animate-spin" />
         <span>{connectingConnector || "Connecting…"}</span>
@@ -373,8 +399,8 @@ export function WalletConnectButton({
     <>
       <button
         onClick={() => setShowModal(true)}
-        className={`cursor-pointer rounded-full border border-brand-PRIMARY/30 bg-gradient-to-r from-brand-PRIMARY/10 to-blue-500/10 px-6 py-3 text-sm font-medium text-brand-PRIMARY shadow-lg shadow-brand-PRIMARY/5 transition-all hover:from-brand-PRIMARY/20 hover:to-blue-500/20 hover:shadow-neon ${
-          compact ? "px-2.5 py-1.5 text-xs" : ""
+        className={`cursor-pointer rounded-xl border border-brand-PRIMARY/30 bg-gradient-to-r from-brand-PRIMARY/10 to-blue-500/10 px-5 py-2.5 text-sm font-medium text-brand-PRIMARY transition-all hover:from-brand-PRIMARY/20 hover:to-blue-500/20 hover:shadow-neon ${
+          compact ? "px-3 py-1.5 text-xs" : ""
         }`}
       >
         {compact ? "Connect" : "Connect Wallet"}
@@ -399,7 +425,9 @@ interface ConnectDropdownProps {
   displayName: string;
   copied: boolean;
   copyAddress: () => void;
-  disconnect: () => void;
+  disconnect: () => any;
+  disconnecting?: boolean;
+  onDisconnect?: () => void;
 }
 
 function ConnectDropdown({
@@ -408,6 +436,8 @@ function ConnectDropdown({
   copied,
   copyAddress,
   disconnect,
+  disconnecting,
+  onDisconnect,
 }: ConnectDropdownProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -448,11 +478,16 @@ function ConnectDropdown({
         <span className="font-medium text-white">{displayName}</span>
       </div>
       <button
-        onClick={() => disconnect()}
-        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+        onClick={onDisconnect}
+        disabled={disconnecting}
+        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-gray-300 opacity-100 transition-all duration-200 hover:bg-white/5 hover:text-white disabled:opacity-50"
       >
-        <LogOut className="h-4 w-4" />
-        Disconnect
+        {disconnecting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <LogOut className="h-4 w-4" />
+        )}
+        {disconnecting ? "Disconnecting…" : "Disconnect"}
       </button>
     </div>,
     document.body,
