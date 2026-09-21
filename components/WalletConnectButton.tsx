@@ -199,22 +199,34 @@ export function WalletConnectButton({
       // ─── Phantom — pure Solana connection (no wagmi/EVM) ───
       // Uses window.phantom.solana directly. No ProviderNotFoundError possible.
       if (walletId === "phantom") {
-        // Mobile: Phantom doesn't inject into mobile browsers.
-        // Open the Phantom deep link — Phantom's in-app browser opens,
-        // the user approves, and Phantom redirects to our site where
-        // window.phantom.solana IS injected. Auto-connect then completes.
         if (mobile && !isPhantomInstalled()) {
           const deepLink = getWalletDeepLink("phantom");
           if (deepLink) {
-            window.open(deepLink, "_blank", "noopener,noreferrer");
+            const newTab = window.open(deepLink, "_blank", "noopener,noreferrer");
+            if (newTab) {
+              // Verify the deep link actually opened the app — if the tab
+              // is still open after 1.5s it means the link bounced to a
+              // download page instead of launching Phantom.
+              setTimeout(() => {
+                if (!newTab.closed) {
+                  newTab.close();
+                  setConnectError(
+                    "Phantom app didn't open automatically.\n\n" +
+                    "In the Phantom app → tap 'Browser' → go to " +
+                    `${window.location.origin} → tap 'Connect Wallet' to connect. ` +
+                    "500 BT-c is ready.",
+                  );
+                }
+              }, 1500);
+            } else {
+              setConnectError(
+                "Phantom app didn't open.\n\n" +
+                "In the Phantom app → tap 'Browser' → go to " +
+                `${window.location.origin} → tap 'Connect Wallet'. 500 BT-c is ready.`,
+              );
+            }
           }
-          // Optimistically set connected state — enables 500 BT-c fallback
-          // immediately, without waiting for Phantom's in-app browser.
           initiateMobilePhantomConnect();
-          setConnectError(
-            "Phantom app opened! In Phantom, tap 'Browser' → navigate to " +
-            `${window.location.origin} → tap 'Connect Wallet'. 500 BT-c is ready.`,
-          );
           return;
         }
 
@@ -231,14 +243,29 @@ export function WalletConnectButton({
 
       // ─── Mobile: open deep link for EVM wallets ───
       if (mobile && !isMetaMaskInstalled() && !isUniswapWalletInstalled()) {
+        const walletName = walletId === "metamask" ? "MetaMask" : "Uniswap Wallet";
         const deepLink = getWalletDeepLink(walletId || "");
         if (deepLink) {
-          window.open(deepLink, "_blank", "noopener,noreferrer");
+          const newTab = window.open(deepLink, "_blank", "noopener,noreferrer");
+          if (newTab) {
+            setTimeout(() => {
+              if (!newTab.closed) {
+                newTab.close();
+                setConnectError(
+                  `${walletName} didn't open automatically.\n\n` +
+                  "Open the app manually and navigate to: " +
+                  `${window.location.origin}, then tap 'Connect Wallet'.`,
+                );
+              }
+            }, 1500);
+          } else {
+            setConnectError(
+              `${walletName} didn't open.\n\n` +
+              "Open the app manually and navigate to: " +
+              `${window.location.origin}, then tap 'Connect Wallet'.`,
+            );
+          }
         }
-        const walletName = walletId === "metamask" ? "MetaMask" : "Uniswap Wallet";
-        setConnectError(
-          `${walletName} opened. After approving in the app, tap 'Connect Wallet' again.`,
-        );
         return;
       }
 
