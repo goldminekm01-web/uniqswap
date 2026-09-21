@@ -5,7 +5,9 @@ import { walletConnect } from "@wagmi/connectors";
 export { mainnet, sepolia };
 
 // WalletConnect v2 Project ID (get from https://cloud.walletconnect.com)
-const WALLET_CONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "c1b5c5c5c5c5c5c5c5c5c5c5c5c5c5c5";
+const WALLET_CONNECT_PROJECT_ID =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
+  "c1b5c5c5c5c5c5c5c5c5c5c5c5c5c5c5";
 
 // ---------------------------------------------------------------------------
 // Wallet detection helpers
@@ -92,6 +94,12 @@ export function getWalletDeepLink(walletId: string, redirectUrl?: string): strin
   }
 }
 
+// WalletConnect connector (primary for mobile)
+export const walletConnectConnector = walletConnect({
+  projectId: WALLET_CONNECT_PROJECT_ID,
+  showQrModal: true,
+});
+
 // ---------------------------------------------------------------------------
 // Connectors
 // ---------------------------------------------------------------------------
@@ -99,13 +107,7 @@ export function getWalletDeepLink(walletId: string, redirectUrl?: string): strin
 function getConnectors() {
   return [
     injected({ target: "metaMask" }),
-    walletConnect({
-      projectId: WALLET_CONNECT_PROJECT_ID,
-      showQrModal: true,
-      qrModalOptions: {
-        themeMode: "dark",
-      },
-    }),
+    walletConnectConnector,
   ];
 }
 
