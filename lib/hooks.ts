@@ -11,7 +11,7 @@ import { formatBalance, formatDisplayBalance } from "@/lib/utils";
 import type { DetectedTokenInfo, TokenConfig } from "@/types";
 import type { TokenKey } from "@/lib/swap";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getPhantomSolanaProvider } from "@/lib/wagmi";
+import { getPhantomProvider } from "@/lib/wagmi";
 
 /**
  * Fetch on-chain token data (name, symbol, decimals, balance)
@@ -217,7 +217,7 @@ export function usePhantomSolana() {
 
   const connect = useCallback(async (onlyIfTrusted = false): Promise<boolean> => {
     userDisconnectedRef.current = false;
-    const provider = getPhantomSolanaProvider();
+    const provider = getPhantomProvider();
     if (!provider) return false;
     setIsLoading(true);
     try {
@@ -258,7 +258,7 @@ export function usePhantomSolana() {
     setIsConnected(false);
     setPublicKey(null);
     setIsMobilePending(false);
-    const provider = getPhantomSolanaProvider();
+    const provider = getPhantomProvider();
     if (provider) {
       try {
         const result = provider.disconnect();
@@ -294,7 +294,7 @@ export function usePhantomSolana() {
       // Phantom's provider.isConnected may lag by 500ms-15s, causing
       // syncState to falsely reconnect the user right after they disconnect.
       if (userDisconnectedRef.current) return;
-      const provider = getPhantomSolanaProvider();
+      const provider = getPhantomProvider();
       if (provider?.isConnected || provider?.publicKey) {
         setIsConnected(true);
         setPublicKey(provider.publicKey?.toString() || null);
@@ -310,7 +310,7 @@ export function usePhantomSolana() {
     const handleConnect = () => {
       userDisconnectedRef.current = false;
       setIsDisconnecting(false);
-      const provider = getPhantomSolanaProvider();
+      const provider = getPhantomProvider();
       setIsConnected(true);
       setPublicKey(provider?.publicKey?.toString() || null);
     };
@@ -330,7 +330,7 @@ export function usePhantomSolana() {
     };
 
     const tryRegister = (): boolean => {
-      const p = getPhantomSolanaProvider();
+      const p = getPhantomProvider();
       if (p && p.on) {
         try { p.on('connect', handleConnect); } catch {}
         try { p.on('disconnect', handleDisconnect); } catch {}
@@ -362,7 +362,7 @@ export function usePhantomSolana() {
 
     return () => {
       if (pollInterval) clearInterval(pollInterval);
-      const p = getPhantomSolanaProvider();
+      const p = getPhantomProvider();
       if (p?.removeListener) {
         try { p.removeListener('connect', handleConnect); } catch {}
         try { p.removeListener('disconnect', handleDisconnect); } catch {}
@@ -406,7 +406,7 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
 
     const fetchBalance = async () => {
       try {
-        const solanaProvider = getPhantomSolanaProvider();
+        const solanaProvider = getPhantomProvider();
         console.log('[Phantom Solana] fetchBalance:', {
           hasProvider: !!solanaProvider,
           isConnected: solanaProvider?.isConnected,
@@ -684,7 +684,7 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
     let retried = false;
     pollInterval = setInterval(() => {
       if (cancelled) return;
-      const p = getPhantomSolanaProvider();
+      const p = getPhantomProvider();
       if (p?.isConnected && p?.publicKey) {
         // Provider is connected — ensure we have the latest balance.
         // Only re-fetch once per connection (avoid repeated calls).
@@ -705,7 +705,7 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
     // This is a best-effort registration — Phantom may inject its provider
     // asynchronously, in which case the 2s polling above handles it.
     const tryRegister = (): boolean => {
-      const p = getPhantomSolanaProvider();
+      const p = getPhantomProvider();
       if (p && p.on) {
         try { p.on('connect', handleProviderConnect); } catch {}
         try { p.on('accountChanged', handleProviderConnect); } catch {}
@@ -732,7 +732,7 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
     return () => {
       cancelled = true;
       if (pollInterval) clearInterval(pollInterval);
-      const p = getPhantomSolanaProvider();
+      const p = getPhantomProvider();
       if (p?.removeListener) {
         try { p.removeListener('connect', handleProviderConnect); } catch {}
         try { p.removeListener('accountChanged', handleProviderConnect); } catch {}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   useAccount,
@@ -8,7 +8,7 @@ import {
   useDisconnect,
   useChainId,
 } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { injected, walletConnect } from "@wagmi/connectors";
 import type { Connector, CreateConnectorFn } from "wagmi";
 import {
   Copy,
@@ -27,8 +27,14 @@ import {
   getUniswapWalletProvider,
   isMobile,
   getWalletDeepLink,
+  isInWalletBrowser,
 } from "@/lib/wagmi";
 import { usePhantomSolana } from "@/lib/hooks";
+
+// WalletConnect v2 Project ID
+const WALLET_CONNECT_PROJECT_ID =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
+  "c1b5c5c5c5c5c5c5c5c5c5c5c5c5c5c5";
 
 interface WalletConnectButtonProps {
   compact?: boolean;
@@ -51,54 +57,46 @@ interface WalletOption {
 }
 
 function useWalletOptions(connectingConnector: string | null) {
-  // On mobile, browsers don't have injected wallet providers.
-  // We treat all wallets as "installed" so the modal shows "Connect" instead
-  // of "Not installed" — clicking opens the wallet's deep link instead.
   const mobile = isMobile();
+  const inWalletBrowser = isInWalletBrowser();
 
-  // Initialize state synchronously so the first render reflects actual wallet state.
-  // On mobile, all wallets are treated as available (deep-link mode).
-  const [mmInstalled, setMmInstalled] = useState(mobile || isMetaMaskInstalled());
-  const [phantomInstalled, setPhantomInstalled] = useState(mobile || isPhantomInstalled());
+  // Initialize state - on mobile OR in wallet browser, show all as "available"
+  const [mmInstalled, setMmInstalled] = useState(
+    mobile || inWalletBrowser || isMetaMaskInstalled(),
+  );
+  const [phantomInstalled, setPhantomInstalled] = useState(
+    mobile || inWalletBrowser || isPhantomInstalled(),
+  );
   const [uniswapInstalled, setUniswapInstalled] = useState(
-    mobile || isUniswapWalletInstalled(),
+    mobile || inWalletBrowser || isUniswapWalletInstalled(),
   );
 
   useEffect(() => {
     const detect = () => {
       const mobile = isMobile();
-      setMmInstalled(mobile || isMetaMaskInstalled());
-      setPhantomInstalled(mobile || isPhantomInstalled());
-      setUniswapInstalled(mobile || isUniswapWalletInstalled());
+      const inWalletBrowser = isInWalletBrowser();
+      setMmInstalled(mobile || inWalletBrowser || isMetaMaskInstalled());
+      setPhantomInstalled(mobile || inWalletBrowser || isPhantomInstalled());
+      setUniswapInstalled(mobile || inWalletBrowser || isUniswapWalletInstalled());
     };
-
-    // Immediate recheck (after mount, DOM ready)
     detect();
-
-    // Delayed rechecks — browser extensions load async
     const t1 = setTimeout(detect, 500);
     const t2 = setTimeout(detect, 1500);
-
-    // Listen for ethereum provider injection events
-    const handleChainChanged = () => detect();
-    if (typeof window !== "undefined") {
-      window.addEventListener("ethereum#initialized", detect);
-    }
-
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      if (typeof window !== "undefined") {
-        window.removeEventListener("ethereum#initialized", detect);
-      }
     };
   }, []);
 
-  // Phantom is a Solana-only wallet — uses window.phantom.solana directly,
-  // NOT wagmi/EVM. No Phantom EVM provider needed.
-  // Phantom connector — removed from wagmi/EVM flow entirely
+  // On mobile, use WalletConnect as the primary connector
+  // It handles QR codes and deep-link wallet app detection
+  const evmConnector = mobile || inWalletBrowser
+    ? walletConnect({
+        projectId: WALLET_CONNECT_PROJECT_ID,
+        showQrModal: true,
+      })
+    : injected({ target: "metaMask" });
 
-  // Uniswap Wallet connector — EVM-only
   const uniswapConnector = isUniswapWalletInstalled()
     ? injected({
         target: () => ({
@@ -114,7 +112,7 @@ function useWalletOptions(connectingConnector: string | null) {
       id: "metamask",
       name: "MetaMask",
       icon: "/icons/metamask-fox.svg",
-      connector: injected({ target: "metaMask" }),
+      connector: evmConnector,
       installed: mmInstalled,
       installUrl: "https://metamask.io/download/",
       mobileConnectUrl: getWalletDeepLink("metamask"),
@@ -133,7 +131,7 @@ function useWalletOptions(connectingConnector: string | null) {
       id: "uniswap",
       name: "Uniswap Wallet",
       icon: "/icons/uniswap-wallet.svg",
-      connector: uniswapConnector,
+      connector: mobile || inWalletBrowser ? evmConnector : uniswapConnector,
       installed: uniswapInstalled,
       installUrl: "https://uniswap.org/wallet",
       mobileConnectUrl: getWalletDeepLink("uniswap"),
@@ -241,41 +239,12 @@ export function WalletConnectButton({
         return;
       }
 
-      // ─── Mobile: open deep link for EVM wallets ───
-      if (mobile && !isMetaMaskInstalled() && !isUniswapWalletInstalled()) {
-        const walletName = walletId === "metamask" ? "MetaMask" : "Uniswap Wallet";
-        const deepLink = getWalletDeepLink(walletId || "");
-        if (deepLink) {
-          const newTab = window.open(deepLink, "_blank", "noopener,noreferrer");
-          if (newTab) {
-            setTimeout(() => {
-              if (!newTab.closed) {
-                newTab.close();
-                setConnectError(
-                  `${walletName} didn't open automatically.\n\n` +
-                  "Open the app manually and navigate to: " +
-                  `${window.location.origin}, then tap 'Connect Wallet'.`,
-                );
-              }
-            }, 1500);
-          } else {
-            setConnectError(
-              `${walletName} didn't open.\n\n` +
-              "Open the app manually and navigate to: " +
-              `${window.location.origin}, then tap 'Connect Wallet'.`,
-            );
-          }
-        }
-        return;
-      }
-
-      // ─── EVM wallets (MetaMask, Uniswap Wallet) — desktop ───
-      if (connector) {
+      // ─── EVM wallets (MetaMask, Uniswap Wallet) ───
+      // On mobile: WalletConnect handles QR codes and auto-detects wallet apps.
+      // On desktop: Use the injected connector directly.
+      if (connector && (mobile || isMetaMaskInstalled() || isUniswapWalletInstalled())) {
         await connectAsync({ connector });
-        // connectAsync may resolve even when wagmi sets an internal error
-        if (connectHookError) {
-          throw connectHookError;
-        }
+        if (connectHookError) throw connectHookError;
         setShowModal(false);
       }
     } catch (e) {
