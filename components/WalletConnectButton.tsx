@@ -148,7 +148,7 @@ export function WalletConnectButton({
 }: WalletConnectButtonProps) {
   const { address, isConnected, isConnecting } = useAccount();
   const { connectAsync, error: connectHookError, reset } = useConnect();
-  const { disconnect } = useDisconnect();
+  const { disconnectAsync } = useDisconnect();
   const chainId = useChainId();
   const { isConnected: solanaConnected, publicKey: solanaPubkey, connect: connectPhantomSolana, disconnect: disconnectPhantomSolana, initiateMobilePhantomConnect, isMobilePending } = usePhantomSolana();
 
@@ -311,9 +311,9 @@ export function WalletConnectButton({
             displayName={displayName}
             copied={copied}
             copyAddress={copyAddress}
-            disconnect={disconnect}
+            disconnect={disconnectAsync}
             disconnecting={disconnecting}
-            onDisconnect={() => handleDisconnect(disconnect)}
+            onDisconnect={() => handleDisconnect(disconnectAsync)}
           />
         )}
       </div>

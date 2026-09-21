@@ -247,18 +247,22 @@ export function usePhantomSolana() {
     }
   }, []);
 
-  const disconnect = useCallback(async () => {
+  const disconnect = useCallback(() => {
     // Update React state FIRST so all hook instances' UIs update immediately.
-    // Phantom's disconnect() may not fire on('disconnect') in all environments,
-    // so we can't rely solely on the event listener to update other instances.
     setIsConnected(false);
     setPublicKey(null);
     setIsMobilePending(false);
-    // Then call Phantom's disconnect() to clean up provider state (best-effort)
+    // Call Phantom's disconnect() to clean up provider state (best-effort).
+    // Do NOT await — if provider.disconnect() hangs on mobile, the await
+    // would prevent React from flushing the state updates above.
+    // The state is already updated; provider.disconnect() is just cleanup.
     const provider = getPhantomSolanaProvider();
     if (provider) {
       try {
-        await provider.disconnect();
+        const result = provider.disconnect();
+        if (result instanceof Promise) {
+          result.catch(() => {});
+        }
       } catch {}
     }
   }, []);
