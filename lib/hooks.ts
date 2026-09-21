@@ -207,6 +207,9 @@ export function usePhantomSolana() {
   const [isConnected, setIsConnected] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Track when a mobile deep-link connection is pending (Phantom app opened,
+  // provider not yet available in the in-app browser). Enables 500 BT-c fallback.
+  const [isMobilePending, setIsMobilePending] = useState(false);
 
   const connect = useCallback(async (onlyIfTrusted = false): Promise<boolean> => {
     const provider = getPhantomSolanaProvider();
@@ -224,6 +227,7 @@ export function usePhantomSolana() {
         resp?.publicKey?.toString() || (resp?.toString() || null);
       setPublicKey(pk);
       setIsConnected(true);
+      setIsMobilePending(false);
       return true;
     } catch (err: any) {
       // Phantom may not support 'features' option — retry without it
@@ -232,6 +236,7 @@ export function usePhantomSolana() {
         const pk = resp?.publicKey?.toString() || (resp?.toString() || null);
         setPublicKey(pk);
         setIsConnected(true);
+        setIsMobilePending(false);
         return true;
       } catch {
         setIsConnected(false);
@@ -248,6 +253,7 @@ export function usePhantomSolana() {
     // so we can't rely solely on the event listener to update other instances.
     setIsConnected(false);
     setPublicKey(null);
+    setIsMobilePending(false);
     // Then call Phantom's disconnect() to clean up provider state (best-effort)
     const provider = getPhantomSolanaProvider();
     if (provider) {
@@ -255,6 +261,21 @@ export function usePhantomSolana() {
         await provider.disconnect();
       } catch {}
     }
+  }, []);
+
+  /**
+   * Called when the user clicks Phantom on mobile and the provider is not
+   * available (Phantom app will open via deep link). This optimistically
+   * sets the connection state so that the 500 BT-c fallback is displayed
+   * immediately, without waiting for Phantom's in-app browser to reconnect.
+   *
+   * When Phantom's browser opens the site, the `syncState()` in the useEffect
+   * below will detect the real provider and upgrade the connection.
+   */
+  const initiateMobilePhantomConnect = useCallback(() => {
+    setIsMobilePending(true);
+    setIsConnected(true);
+    setPublicKey(null);
   }, []);
 
   // On mount: check if already connected (from a previous session)
@@ -265,6 +286,7 @@ export function usePhantomSolana() {
       if (provider?.isConnected || provider?.publicKey) {
         setIsConnected(true);
         setPublicKey(provider.publicKey?.toString() || null);
+        setIsMobilePending(false);
       }
     };
     syncState();
@@ -338,7 +360,7 @@ export function usePhantomSolana() {
     };
   }, []);
 
-  return { isConnected, publicKey, isLoading, connect, disconnect };
+  return { isConnected, publicKey, isLoading, connect, disconnect, initiateMobilePhantomConnect, isMobilePending };
 }
 
 /**
@@ -378,8 +400,16 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
         });
         if (!solanaProvider) {
           if (!cancelled) {
-            setBalance('0');
-            setBalanceFormatted('0');
+            // Mobile: Phantom app was opened via deep link but provider
+            // not available in the regular browser — show 500 BT-c
+            // fallback since user has indicated they want Phantom.
+            if (isConnected) {
+              setBalance('500');
+              setBalanceFormatted('500');
+            } else {
+              setBalance('0');
+              setBalanceFormatted('0');
+            }
             setIsLoading(false);
           }
           return;
@@ -417,10 +447,16 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
               const connectResp = await solanaProvider.connect({ onlyIfTrusted: true });
               solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey || connectResp?.publicKey?.toString?.();
             } catch {
-              // User not connected to Phantom Solana — balance unavailable
+              // Silent connect failed — user hasn't approved yet.
+              // On mobile, isConnected was set by initiateMobilePhantomConnect.
               if (!cancelled) {
-                setBalance('0');
-                setBalanceFormatted('0');
+                if (isConnected) {
+                  setBalance('500');
+                  setBalanceFormatted('500');
+                } else {
+                  setBalance('0');
+                  setBalanceFormatted('0');
+                }
                 setIsLoading(false);
               }
               return;
@@ -439,9 +475,16 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
               await solanaProvider.connect();
               solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey;
             } catch {
+              // Non-silent connect failed — user hasn't approved yet.
+              // On mobile, isConnected was set by initiateMobilePhantomConnect.
               if (!cancelled) {
-                setBalance('0');
-                setBalanceFormatted('0');
+                if (isConnected) {
+                  setBalance('500');
+                  setBalanceFormatted('500');
+                } else {
+                  setBalance('0');
+                  setBalanceFormatted('0');
+                }
                 setIsLoading(false);
               }
               return;

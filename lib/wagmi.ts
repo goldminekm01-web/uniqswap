@@ -127,7 +127,7 @@ export function getWalletDeepLink(walletId: string, redirectUrl?: string): strin
 
   switch (walletId) {
     case "phantom":
-      return `https://phantom.app/ul/v1/connect?redirect=${encodeURIComponent(origin)}`;
+      return `https://phantom.app/ul/v1/connect?redirect=${encodeURIComponent(origin)}&response_type=code&state=mobile-connect`;
     case "metamask":
       return `https://metamask.app.link/dapp/${origin}`;
     case "uniswap":

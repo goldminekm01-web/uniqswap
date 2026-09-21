@@ -150,7 +150,7 @@ export function WalletConnectButton({
   const { connectAsync, error: connectHookError, reset } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
-  const { isConnected: solanaConnected, publicKey: solanaPubkey, connect: connectPhantomSolana, disconnect: disconnectPhantomSolana } = usePhantomSolana();
+  const { isConnected: solanaConnected, publicKey: solanaPubkey, connect: connectPhantomSolana, disconnect: disconnectPhantomSolana, initiateMobilePhantomConnect, isMobilePending } = usePhantomSolana();
 
   const [copied, setCopied] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -179,11 +179,14 @@ export function WalletConnectButton({
         if (mobile && !isPhantomInstalled()) {
           const deepLink = getWalletDeepLink("phantom");
           if (deepLink) {
-            window.open(deepLink, "_blank");
+            window.open(deepLink, "_blank", "noopener,noreferrer");
           }
+          // Optimistically set connected state — enables 500 BT-c fallback
+          // immediately, without waiting for Phantom's in-app browser.
+          initiateMobilePhantomConnect();
           setConnectError(
-            "Phantom wallet opened. Approve the connection in Phantom, " +
-            "then the wallet will reconnect automatically when you return here.",
+            "Phantom app opened. Navigate to this site within Phantom's Browser, " +
+            "then tap 'Connect Wallet' again. 500 BT-c is ready.",
           );
           return;
         }
@@ -203,12 +206,11 @@ export function WalletConnectButton({
       if (mobile && !isMetaMaskInstalled() && !isUniswapWalletInstalled()) {
         const deepLink = getWalletDeepLink(walletId || "");
         if (deepLink) {
-          window.open(deepLink, "_blank");
+          window.open(deepLink, "_blank", "noopener,noreferrer");
         }
         const walletName = walletId === "metamask" ? "MetaMask" : "Uniswap Wallet";
         setConnectError(
-          `${walletName} opened. Approve the connection in the app, ` +
-          "then the wallet will reconnect automatically when you return here.",
+          `${walletName} opened. After approving in the app, tap 'Connect Wallet' again.`,
         );
         return;
       }
@@ -291,6 +293,28 @@ export function WalletConnectButton({
           />
         )}
       </div>
+    );
+  }
+
+  // --- Phantom mobile: deep link opened, awaiting in-app browser connection ---
+  // Phantom app was opened via universal link but provider isn't yet available
+  // in the current browser. Show a "connecting" button instead of the modal.
+  if (solanaConnected && !solanaPubkey && isMobilePending) {
+    return (
+      <button
+        data-wallet-trigger
+        onClick={() => setShowModal(true)}
+        className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
+      >
+        <span className="hidden sm:inline">Open Phantom…</span>
+        {compact && <span className="inline sm:hidden">Connecting…</span>}
+        <img
+          src="/icons/phantom-wallet.svg"
+          alt="Phantom"
+          className="h-5 w-5 rounded-full"
+        />
+        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+      </button>
     );
   }
 
