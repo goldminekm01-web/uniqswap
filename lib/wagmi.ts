@@ -127,7 +127,12 @@ export function getWalletDeepLink(walletId: string, redirectUrl?: string): strin
 
   switch (walletId) {
     case "phantom":
-      return `https://phantom.app/ul/v1/connect?redirect=${encodeURIComponent(origin)}&response_type=code&state=mobile-connect`;
+      // On mobile, Phantom's connect deep link (ul/v1/connect) requires
+      // a registered client_id from the Phantom developer portal. Without it,
+      // Phantom opens but shows a blank page. Instead, we open the Phantom app
+      // directly — the user navigates to this site within Phantom's built-in
+      // browser, where window.phantom.solana IS injected.
+      return `https://phantom.app/`;
     case "metamask":
       return `https://metamask.app.link/dapp/${origin}`;
     case "uniswap":

@@ -185,8 +185,8 @@ export function WalletConnectButton({
           // immediately, without waiting for Phantom's in-app browser.
           initiateMobilePhantomConnect();
           setConnectError(
-            "Phantom app opened. Navigate to this site within Phantom's Browser, " +
-            "then tap 'Connect Wallet' again. 500 BT-c is ready.",
+            "Phantom app opened! In Phantom, tap 'Browser' → navigate to " +
+            `${window.location.origin} → tap 'Connect Wallet'. 500 BT-c is ready.`,
           );
           return;
         }
