@@ -16,8 +16,8 @@ const WALLET_CONNECT_PROJECT_ID =
 export function getPhantomProvider(): any | null {
   if (typeof window === "undefined") return null;
   const w = window as any;
-  if (w.phantom && w.phantom.ethereum) return w.phantom.ethereum;
-  if (w.ethereum && w.ethereum.isPhantom) return w.ethereum;
+  // Phantom Solana provider - NOT EVM
+  if (w.phantom && w.phantom.solana) return w.phantom.solana;
   return null;
 }
 

@@ -230,6 +230,7 @@ export function WalletConnectButton({
 
         const solanaOk = await connectPhantomSolana();
         if (solanaOk) {
+          setForceDisconnected(false); // Reset disconnect flag on successful connect
           setShowModal(false);
           return;
         }
@@ -560,7 +561,7 @@ function ConnectModal({
               <div
                 key={wallet.id}
                 className={
-                  wallet.installed && wallet.connector
+                  wallet.installed
                     ? "cursor-pointer rounded-2xl border border-white/10 bg-white/5 p-0.5 shadow-inner transition-all hover:border-white/20 hover:bg-white/10"
                     : "rounded-2xl border border-white/5 bg-white/3 p-0.5"
                 }
