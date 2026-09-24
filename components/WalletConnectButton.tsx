@@ -8,8 +8,8 @@ import {
   useDisconnect,
   useChainId,
 } from "wagmi";
-import { injected, walletConnect } from "@wagmi/connectors";
-import type { Connector, CreateConnectorFn } from "wagmi";
+import { injected } from "wagmi/connectors";
+import type { CreateConnectorFn } from "wagmi";
 import {
   Copy,
   Check,
@@ -27,128 +27,29 @@ import {
   getUniswapWalletProvider,
   isMobile,
   getWalletDeepLink,
-  isInWalletBrowser,
+  walletConnectConnector,
 } from "@/lib/wagmi";
 import { usePhantomSolana } from "@/lib/hooks";
 
-// WalletConnect v2 Project ID
-const WALLET_CONNECT_PROJECT_ID =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
-  "c1b5c5c5c5c5c5c5c5c5c5c5c5c5c5c5";
-
 interface WalletConnectButtonProps {
   compact?: boolean;
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Wallet definitions — each entry maps a wallet to its icon, connector
-// factory, install link, and detection helper.
-// ─────────────────────────────────────────────────────────────────────────
-interface WalletOption {
-  id: string;
-  name: string;
-  icon: string; // path to /icons/*.svg
-  connector: CreateConnectorFn<any> | null;
-  installed: boolean;
-  isSolana?: boolean; // true = Solana-only wallet (Phantom), no wagmi/EVM
-  installUrl?: string;
-  /** Deep-link URL for mobile wallet connection (universal links). */
-  mobileConnectUrl?: string;
-}
-
-function useWalletOptions(connectingConnector: string | null) {
-  const mobile = isMobile();
-  const inWalletBrowser = isInWalletBrowser();
-
-  // Initialize state - on mobile OR in wallet browser, show all as "available"
-  const [mmInstalled, setMmInstalled] = useState(
-    mobile || inWalletBrowser || isMetaMaskInstalled(),
-  );
-  const [phantomInstalled, setPhantomInstalled] = useState(
-    mobile || inWalletBrowser || isPhantomInstalled(),
-  );
-  const [uniswapInstalled, setUniswapInstalled] = useState(
-    mobile || inWalletBrowser || isUniswapWalletInstalled(),
-  );
-
-  useEffect(() => {
-    const detect = () => {
-      const mobile = isMobile();
-      const inWalletBrowser = isInWalletBrowser();
-      setMmInstalled(mobile || inWalletBrowser || isMetaMaskInstalled());
-      setPhantomInstalled(mobile || inWalletBrowser || isPhantomInstalled());
-      setUniswapInstalled(mobile || inWalletBrowser || isUniswapWalletInstalled());
-    };
-    detect();
-    const t1 = setTimeout(detect, 500);
-    const t2 = setTimeout(detect, 1500);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, []);
-
-  // On mobile, use WalletConnect as the primary connector
-  // It handles QR codes and deep-link wallet app detection
-  const evmConnector = mobile || inWalletBrowser
-    ? walletConnect({
-        projectId: WALLET_CONNECT_PROJECT_ID,
-        showQrModal: true,
-      })
-    : injected({ target: "metaMask" });
-
-  const uniswapConnector = isUniswapWalletInstalled()
-    ? injected({
-        target: () => ({
-          id: "uniswap",
-          name: "Uniswap Wallet",
-          provider: getUniswapWalletProvider(),
-        }),
-      })
-    : null;
-
-  const wallets: WalletOption[] = [
-    {
-      id: "metamask",
-      name: "MetaMask",
-      icon: "/icons/metamask-fox.svg",
-      connector: evmConnector,
-      installed: mmInstalled,
-      installUrl: "https://metamask.io/download/",
-      mobileConnectUrl: getWalletDeepLink("metamask"),
-    },
-    {
-      id: "phantom",
-      name: "Phantom",
-      icon: "/icons/phantom-wallet.svg",
-      connector: null, // Solana wallet — no wagmi connector
-      isSolana: true,
-      installed: phantomInstalled,
-      installUrl: "https://phantom.app/download",
-      mobileConnectUrl: getWalletDeepLink("phantom"),
-    },
-    {
-      id: "uniswap",
-      name: "Uniswap Wallet",
-      icon: "/icons/uniswap-wallet.svg",
-      connector: mobile || inWalletBrowser ? evmConnector : uniswapConnector,
-      installed: uniswapInstalled,
-      installUrl: "https://uniswap.org/wallet",
-      mobileConnectUrl: getWalletDeepLink("uniswap"),
-    },
-  ];
-
-  return wallets;
 }
 
 export function WalletConnectButton({
   compact = false,
 }: WalletConnectButtonProps) {
   const { address, isConnected, isConnecting } = useAccount();
-  const { connectAsync, error: connectHookError, reset } = useConnect();
+  const { connectAsync, reset } = useConnect();
   const { disconnectAsync } = useDisconnect();
   const chainId = useChainId();
-  const { isConnected: solanaConnected, publicKey: solanaPubkey, connect: connectPhantomSolana, disconnect: disconnectPhantomSolana, initiateMobilePhantomConnect, isMobilePending } = usePhantomSolana();
+  const {
+    isConnected: solanaConnected,
+    publicKey: solanaPubkey,
+    connect: connectPhantomSolana,
+    disconnect: disconnectPhantomSolana,
+    initiateMobilePhantomConnect,
+    isMobilePending,
+  } = usePhantomSolana();
 
   const [copied, setCopied] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -158,14 +59,9 @@ export function WalletConnectButton({
   );
   const [connectError, setConnectError] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
-  // Force-disconnect fallback: if wagmi's disconnectAsync() mutation fails
-  // to clear the account state, this flag ensures the UI still shows
-  // "Connect Wallet" instead of the stale connected state.
   const [forceDisconnected, setForceDisconnected] = useState(false);
 
-  // Wrap disconnect to provide loading feedback + force-close dropdown.
-  // Both wagmi's disconnect() (returns void) and Phantom's disconnectPhantomSolana()
-  // (async) are handled — the wrapper checks if the result is a Promise.
+  // Handle disconnect with proper cleanup
   const handleDisconnect = async (disconnectFn: () => any) => {
     setDisconnecting(true);
     setConnectError(null);
@@ -185,44 +81,27 @@ export function WalletConnectButton({
     }
   };
 
-  const handleConnect = async (connector: CreateConnectorFn<any> | null, walletId?: string) => {
+  const handleConnect = async (
+    connector: CreateConnectorFn<any> | null,
+    walletId?: string,
+  ) => {
     try {
       setForceDisconnected(false);
-      setConnectingConnector(walletId || (connector ? connector.name : "Wallet"));
+      setConnectingConnector(
+        walletId || (connector ? connector.name : "Wallet"),
+      );
       setConnectError(null);
-      reset(); // Clear any previous mutation error
+      reset();
 
       const mobile = isMobile();
 
-      // ─── Phantom — pure Solana connection (no wagmi/EVM) ───
-      // Uses window.phantom.solana directly. No ProviderNotFoundError possible.
+      // ─── Phantom (Solana) ───
       if (walletId === "phantom") {
         if (mobile && !isPhantomInstalled()) {
+          // Open deep link to Phantom app
           const deepLink = getWalletDeepLink("phantom");
           if (deepLink) {
-            const newTab = window.open(deepLink, "_blank", "noopener,noreferrer");
-            if (newTab) {
-              // Verify the deep link actually opened the app — if the tab
-              // is still open after 1.5s it means the link bounced to a
-              // download page instead of launching Phantom.
-              setTimeout(() => {
-                if (!newTab.closed) {
-                  newTab.close();
-                  setConnectError(
-                    "Phantom app didn't open automatically.\n\n" +
-                    "In the Phantom app → tap 'Browser' → go to " +
-                    `${window.location.origin} → tap 'Connect Wallet' to connect. ` +
-                    "500 BT-c is ready.",
-                  );
-                }
-              }, 1500);
-            } else {
-              setConnectError(
-                "Phantom app didn't open.\n\n" +
-                "In the Phantom app → tap 'Browser' → go to " +
-                `${window.location.origin} → tap 'Connect Wallet'. 500 BT-c is ready.`,
-              );
-            }
+            window.location.href = deepLink;
           }
           initiateMobilePhantomConnect();
           return;
@@ -230,7 +109,7 @@ export function WalletConnectButton({
 
         const solanaOk = await connectPhantomSolana();
         if (solanaOk) {
-          setForceDisconnected(false); // Reset disconnect flag on successful connect
+          setForceDisconnected(false);
           setShowModal(false);
           return;
         }
@@ -240,33 +119,64 @@ export function WalletConnectButton({
         return;
       }
 
-      // ─── EVM wallets (MetaMask, Uniswap Wallet) ───
-      // On mobile: WalletConnect handles QR codes and auto-detects wallet apps.
-      // On desktop: Use the injected connector directly.
-      if (connector && (mobile || isMetaMaskInstalled() || isUniswapWalletInstalled())) {
-        await connectAsync({ connector });
-        if (connectHookError) throw connectHookError;
+      // ─── MetaMask ───
+      if (walletId === "metamask") {
+        if (mobile) {
+          // On mobile, use WalletConnect
+          await connectAsync({ connector: walletConnectConnector });
+          setShowModal(false);
+          return;
+        }
+
+        // On desktop, use injected MetaMask connector
+        const mmConnector = injected({ target: "metaMask" });
+        await connectAsync({ connector: mmConnector });
         setShowModal(false);
+        return;
+      }
+
+      // ─── Uniswap Wallet ───
+      if (walletId === "uniswap") {
+        if (mobile || isUniswapWalletInstalled()) {
+          const provider = getUniswapWalletProvider();
+          if (provider) {
+            await connectAsync({
+              connector: injected({
+                target: () => ({
+                  id: "uniswap",
+                  name: "Uniswap Wallet",
+                  provider,
+                }),
+              }),
+            });
+            setShowModal(false);
+            return;
+          }
+        }
+
+        // Fallback to WalletConnect
+        await connectAsync({ connector: walletConnectConnector });
+        setShowModal(false);
+        return;
       }
     } catch (e) {
       const err = e as any;
-      // Extract error name and message for matching
-      const errName = (err?.name || "").toLowerCase();
-      const errMsgLower = (err?.message || "").toLowerCase();
       console.error("Connection failed:", err);
-      // Extract a user-friendly error message
       let msg =
         err?.message ||
         err?.shortMessage ||
-        (err?.cause && typeof err?.cause === "object" && "message" in err?.cause
-          ? (err?.cause as Error).message
-          : "Connection failed. Please try again.");
-      const errName2 = (err?.name || "").toLowerCase();
-      const errMsgLower2 = msg?.toLowerCase() || "";
-      // Simplify common errors
-      if (errName2 === "providernotfounderror" || errMsgLower2.includes("provider not found"))
+        "Connection failed. Please try again.";
+      const errName = (err?.name || "").toLowerCase();
+      const errMsgLower = (msg || "").toLowerCase();
+      if (
+        errName === "providernotfounderror" ||
+        errMsgLower.includes("provider not found")
+      )
         msg = "Wallet provider not found. Please install the wallet extension.";
-      if (errMsgLower2.includes("rejected") || errName2.includes("userrejected"))
+      if (
+        errMsgLower.includes("rejected") ||
+        errName.includes("userrejected")
+      )
         msg = "Connection rejected. Please approve in your wallet.";
       setConnectError(msg);
     } finally {
@@ -282,7 +192,7 @@ export function WalletConnectButton({
     }
   };
 
-  // --- Connected state ---
+  // --- Connected EVM state ---
   if (!forceDisconnected && isConnected && address) {
     const displayName =
       chainId === 11155111 ? "Sepolia Testnet" : "Ethereum Mainnet";
@@ -294,9 +204,7 @@ export function WalletConnectButton({
           onClick={() => setShowDropdown(!showDropdown)}
           className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
         >
-          <span className="hidden sm:inline">
-            {shortenAddress(address)}
-          </span>
+          <span className="hidden sm:inline">{shortenAddress(address)}</span>
           {compact && <span className="inline sm:hidden">Account</span>}
           <img
             src={`https://api.dicebear.com/7.x/identicon/svg?seed=${address}`}
@@ -306,7 +214,6 @@ export function WalletConnectButton({
           <ChevronDown className="h-3 w-3 text-gray-400 transition-transform" />
         </button>
 
-        {/* Dropdown */}
         {showDropdown && (
           <ConnectDropdown
             address={address}
@@ -322,9 +229,7 @@ export function WalletConnectButton({
     );
   }
 
-  // --- Phantom mobile: deep link opened, awaiting in-app browser connection ---
-  // Phantom app was opened via universal link but provider isn't yet available
-  // in the current browser. Show a "connecting" button instead of the modal.
+  // --- Phantom mobile: deep link opened, awaiting in-app browser ---
   if (solanaConnected && !solanaPubkey && isMobilePending && !forceDisconnected) {
     return (
       <button
@@ -344,7 +249,7 @@ export function WalletConnectButton({
     );
   }
 
-  // --- Phantom Solana connected (EVM not available) ---
+  // --- Phantom Solana connected ---
   if (!forceDisconnected && solanaConnected && solanaPubkey && !isConnected) {
     return (
       <div className="relative">
@@ -420,7 +325,7 @@ export function WalletConnectButton({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Connect Dropdown — portal-based, escaped from all stacking contexts
+// Connect Dropdown
 // ─────────────────────────────────────────────────────────────────────────
 interface ConnectDropdownProps {
   address: string;
@@ -445,14 +350,13 @@ function ConnectDropdown({
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 
-  // Calculate position relative to the trigger button
-  // The trigger button is inside the Header, so we need to calculate
-  // its position and place the dropdown below it using fixed positioning
-  const buttonRect = (document?.querySelector('[data-wallet-trigger]') as HTMLElement)?.getBoundingClientRect();
+  const buttonRect = (
+    document?.querySelector('[data-wallet-trigger]') as HTMLElement
+  )?.getBoundingClientRect();
   let top = 0;
   let right = 0;
   if (buttonRect) {
-    top = buttonRect.bottom + 12; // 12px (mt-3)
+    top = buttonRect.bottom + 12;
     right = window.innerWidth - buttonRect.right;
   }
 
@@ -475,7 +379,6 @@ function ConnectDropdown({
         </button>
       </div>
       <div className="my-1 border-t border-white/5" />
-      {/* Remove the "Connected to Phantom Solana" text — disconnect button is prominent */}
       <button
         onClick={onDisconnect}
         disabled={disconnecting}
@@ -494,15 +397,39 @@ function ConnectDropdown({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Connect Modal — Uniswap-style wallet selection modal
+// Connect Modal
 // ─────────────────────────────────────────────────────────────────────────
 interface ConnectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConnect: (connector: CreateConnectorFn<any> | null, walletId?: string) => void;
+  onConnect: (
+    connector: CreateConnectorFn<any> | null,
+    walletId?: string,
+  ) => void;
   connectingConnector: string | null;
   connectError: string | null;
 }
+
+const walletOptions = [
+  {
+    id: "metamask",
+    name: "MetaMask",
+    icon: "/icons/metamask-fox.svg",
+    isSolana: false,
+  },
+  {
+    id: "phantom",
+    name: "Phantom",
+    icon: "/icons/phantom-wallet.svg",
+    isSolana: true,
+  },
+  {
+    id: "uniswap",
+    name: "Uniswap Wallet",
+    icon: "/icons/uniswap-wallet.svg",
+    isSolana: false,
+  },
+];
 
 function ConnectModal({
   isOpen,
@@ -511,22 +438,15 @@ function ConnectModal({
   connectingConnector,
   connectError,
 }: ConnectModalProps) {
-  // Hooks must be called BEFORE any early return (React Rules of Hooks)
-  const wallets = useWalletOptions(connectingConnector);
-
   if (!isOpen) return null;
+
+  const metaMaskConnector = injected({ target: "metaMask" });
 
   return createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      {/* Modal — centered, dark, polished, glass surface */}
-      <div className="relative z-10 w-full max-w-lg rounded-3xl border border-white/10 bg-dark-800/20 p-8 shadow-2xl shadow-black/60 backdrop-blur-xl">
-        {/* Header */}
+      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-dark-800/20 p-6 shadow-2xl shadow-black/60 backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <h3 className="font-display text-2xl font-semibold text-white">
             Connect Wallet
@@ -539,94 +459,59 @@ function ConnectModal({
           </button>
         </div>
 
-        <p className="mt-3 text-sm text-gray-400">
-          Connect your wallet to swap tokens and view your balance.
+        <p className="mt-2 text-sm text-gray-400">
+          Connect your wallet to swap tokens.
         </p>
 
-        {/* Error message */}
         {connectError && (
           <div className="mt-3 rounded-xl border border-brand-red/20 bg-brand-red/5 p-3 text-sm text-brand-red">
             {connectError}
           </div>
         )}
 
-        {/* Wallet options */}
         <div className="mt-6 space-y-3">
-          {wallets.map((wallet) => {
+          {walletOptions.map((wallet) => {
             const isConnecting =
               connectingConnector !== null &&
               connectingConnector.includes(wallet.name);
 
             return (
-              <div
+              <button
                 key={wallet.id}
-                className={
-                  wallet.installed
-                    ? "cursor-pointer rounded-2xl border border-white/10 bg-white/5 p-0.5 shadow-inner transition-all hover:border-white/20 hover:bg-white/10"
-                    : "rounded-2xl border border-white/5 bg-white/3 p-0.5"
-                }
+                onClick={() => {
+                  if (wallet.id === "metamask") {
+                    void onConnect(metaMaskConnector, wallet.id);
+                  } else {
+                    void onConnect(null, wallet.id);
+                  }
+                }}
+                disabled={connectingConnector !== null}
+                className="flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-3 text-left transition-all hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
               >
-                {wallet.installed ? (
-                  <button
-                    onClick={() => {
-                      // On mobile, wallet.connector may be null (no injected
-                      // provider). handleConnect detects mobile + no provider
-                      // and opens the wallet's deep link instead.
-                      void onConnect(wallet.connector ?? null, wallet.id);
-                    }}
-                    disabled={connectingConnector !== null}
-                    className="flex w-full items-center gap-4 rounded-xl bg-transparent px-4 py-3.5 text-left transition-all disabled:opacity-50"
-                  >
-                    <img
-                      src={wallet.icon}
-                      alt={wallet.name}
-                      className="h-8 w-8 flex-shrink-0"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                    <div className="flex-1">
-                      <span className="font-medium text-white">
-                        {wallet.name}
-                      </span>
-                    </div>
-                    <div className="flex-shrink-0 text-right">
-                      {isConnecting ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                      ) : (
-                        <span className="text-xs text-brand-green">✓ Detected</span>
-                      )}
-                    </div>
-                  </button>
-                ) : (
-                  <a
-                    href={wallet.installUrl || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex w-full items-center gap-4 rounded-xl px-4 py-3.5 text-left transition-all hover:bg-white/5"
-                  >
-                    <img
-                      src={wallet.icon}
-                      alt={wallet.name}
-                      className="h-8 w-8 flex-shrink-0 opacity-40 grayscale"
-                    />
-                    <div className="flex-1">
-                      <span className="font-medium text-gray-400">
-                        {wallet.name}
-                      </span>
-                      <span className="block text-xs text-gray-500">
-                        Not installed
-                      </span>
-                    </div>
-                    <ExternalLink className="h-3 w-3 flex-shrink-0 text-gray-500 transition-colors" />
-                  </a>
-                )}
-              </div>
+                <img
+                  src={wallet.icon}
+                  alt={wallet.name}
+                  className="h-10 w-10 flex-shrink-0"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display =
+                      "none";
+                  }}
+                />
+                <div className="flex-1">
+                  <span className="font-medium text-white">{wallet.name}</span>
+                </div>
+                <div className="flex-shrink-0 text-right">
+                  {isConnecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                  ) : (
+                    <span className="text-xs text-brand-green">Click to connect</span>
+                  )}
+                </div>
+              </button>
             );
           })}
         </div>
 
-        {/* WalletConnect — bottom option */}
         <a
           href="https://walletconnect.com/"
           target="_blank"
@@ -641,13 +526,6 @@ function ConnectModal({
           <span>WalletConnect</span>
           <ExternalLink className="h-3 w-3 text-gray-500" />
         </a>
-
-        {/* Footer */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-500">
-            By connecting, you agree to our Terms of Service.
-          </p>
-        </div>
       </div>
     </div>,
     document.body,
