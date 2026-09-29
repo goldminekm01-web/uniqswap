@@ -384,7 +384,7 @@ export function usePhantomSolana() {
  *
  * Does NOT require wagmi's EVM `isConnected` — users can view
  * their SLP token balances through Phantom's Solana provider
- * without having to enable Phantom's EVM mode.
+ * without having to enable Phantom EVM mode.
  */
 export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token-2022" | "legacy") {
   const [balance, setBalance] = useState<string | null>(null);
@@ -392,19 +392,24 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Re-fetch balance when the Phantom Solana connection state changes.
-  const { isConnected, publicKey: solanaPubkey } = usePhantomSolana();
+  // Check Phantom provider directly instead of relying on usePhantomSolana
+  // This avoids timing issues where usePhantomSolana hasn't detected the connection yet.
+  const getProvider = useCallback(() => getPhantomProvider(), []);
 
   useEffect(() => {
     if (!mintAddress) return;
 
     let cancelled = false;
-    setIsLoading(true);
-    setError(null);
+    let retryCount = 0;
+    const maxRetries = 10;
 
     const fetchBalance = async () => {
+      if (cancelled) return;
       try {
-        const solanaProvider = getPhantomProvider();
+        setIsLoading(true);
+        setError(null);
+
+        const solanaProvider = getProvider();
         if (!solanaProvider) {
           if (!cancelled) {
             setBalance('0');
@@ -414,9 +419,9 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
           return;
         }
 
-        // Get the user's Solana public key
+        // Get the user's Solana public key directly from provider
         let solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey;
-        
+
         // If not connected, try silent connect
         if (!solPubkey && !solanaProvider.isConnected) {
           try {
@@ -457,7 +462,7 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
 
         // Query the user's token accounts for the BT-c mint address
         let accounts: any[] = [];
-        
+
         // Method 1: Try Phantom's request() first
         if (typeof solanaProvider.request === 'function') {
           try {
@@ -609,29 +614,21 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
       }
     };
 
-    // Direct polling: checks Phantom provider state every 2 seconds
+    // Direct polling: checks Phantom provider state every 3 seconds
+    // Continues until balance is fetched or component unmounts
     let pollInterval: ReturnType<typeof setInterval> | null = null;
-    let retried = false;
     pollInterval = setInterval(() => {
       if (cancelled) return;
-      const p = getPhantomProvider();
+      const p = getProvider();
       if (p?.isConnected && p?.publicKey) {
-        if (!retried) {
-          retried = true;
-          console.log('[Phantom Solana] Polling detected connection, re-fetching balance');
-          void fetchBalance();
-        }
+        console.log('[Phantom Solana] Polling detected connection, re-fetching balance');
+        void fetchBalance();
       }
-    }, 2000);
-
-    // Stop polling after 60 seconds
-    setTimeout(() => {
-      if (pollInterval && !cancelled) clearInterval(pollInterval);
-    }, 60000);
+    }, 3000);
 
     // Register Phantom native event listeners
     const tryRegister = (): boolean => {
-      const p = getPhantomProvider();
+      const p = getProvider();
       if (p && p.on) {
         try { p.on('connect', handleProviderConnect); } catch {}
         try { p.on('accountChanged', handleProviderConnect); } catch {}
@@ -656,13 +653,13 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
     return () => {
       cancelled = true;
       if (pollInterval) clearInterval(pollInterval);
-      const p = getPhantomProvider();
+      const p = getProvider();
       if (p?.removeListener) {
         try { p.removeListener('connect', handleProviderConnect); } catch {}
         try { p.removeListener('accountChanged', handleProviderConnect); } catch {}
       }
     };
-  }, [mintAddress, tokenProgram, isConnected, solanaPubkey]);
+  }, [mintAddress, tokenProgram]);
 
   return {
     balance,

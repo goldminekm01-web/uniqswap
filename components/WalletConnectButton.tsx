@@ -416,18 +416,21 @@ const walletOptions = [
     name: "MetaMask",
     icon: "/icons/metamask-fox.svg",
     isSolana: false,
+    checkInstalled: isMetaMaskInstalled,
   },
   {
     id: "phantom",
     name: "Phantom",
     icon: "/icons/phantom-wallet.svg",
     isSolana: true,
+    checkInstalled: isPhantomInstalled,
   },
   {
     id: "uniswap",
     name: "Uniswap Wallet",
     icon: "/icons/uniswap-wallet.svg",
     isSolana: false,
+    checkInstalled: isUniswapWalletInstalled,
   },
 ];
 
@@ -441,6 +444,9 @@ function ConnectModal({
   if (!isOpen) return null;
 
   const metaMaskConnector = injected({ target: "metaMask" });
+
+  // Filter to only show installed wallets
+  const availableWallets = walletOptions.filter((w) => w.checkInstalled());
 
   return createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
@@ -470,7 +476,7 @@ function ConnectModal({
         )}
 
         <div className="mt-6 space-y-3">
-          {walletOptions.map((wallet) => {
+          {availableWallets.map((wallet) => {
             const isConnecting =
               connectingConnector !== null &&
               connectingConnector.includes(wallet.name);
