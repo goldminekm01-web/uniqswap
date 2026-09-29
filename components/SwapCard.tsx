@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAccount } from "wagmi";
 import {
   AlertCircle,
@@ -9,8 +9,10 @@ import {
   ChevronDown,
   Copy,
   Loader2,
+  Moon,
   RefreshCw,
   Settings,
+  Sun,
   Timer,
   Zap,
 } from "lucide-react";
@@ -21,7 +23,6 @@ import { calculateSwap, simulateSwapTransaction } from "@/lib/swap";
 import type { SwapQuote } from "@/lib/swap";
 import type { TransactionStatus } from "@/types";
 import { TokenSelector } from "./TokenSelector";
-import { SettingsModal } from "./SettingsModal";
 
 /**
  * SwapCard – Uniswap-style swap interface.
@@ -91,10 +92,56 @@ export function SwapCard() {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
 
+  // --- Theme state ---
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("theme");
+      if (saved) return saved === "dark";
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    return true;
+  });
+
+  // Apply theme to document root
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.style.setProperty("--color-bg", "#000000");
+      root.style.setProperty("--color-bg-card", "#0a0a0a");
+      root.style.setProperty("--color-bg-elevated", "#1a1a1a");
+      root.style.setProperty("--color-border", "#2a2a2a");
+      root.style.setProperty("--color-border-strong", "#3a3a3a");
+      root.style.setProperty("--color-text", "#ffffff");
+      root.style.setProperty("--color-text-secondary", "#a0a0a0");
+      root.style.setProperty("--color-text-tertiary", "#6c6c6c");
+      root.style.setProperty("--color-input-bg", "#1a1a1a");
+      document.body.style.background = `
+        radial-gradient(ellipse at top, rgba(118, 71, 234, 0.08) 0%, transparent 40%),
+        radial-gradient(ellipse at bottom right, rgba(0, 195, 255, 0.06) 0%, transparent 40%),
+        #000000
+      `;
+    } else {
+      root.style.setProperty("--color-bg", "#ffffff");
+      root.style.setProperty("--color-bg-card", "#ffffff");
+      root.style.setProperty("--color-bg-elevated", "#f9fafb");
+      root.style.setProperty("--color-border", "#e0e0e0");
+      root.style.setProperty("--color-border-strong", "#cbcbcb");
+      root.style.setProperty("--color-text", "#1c1c1e");
+      root.style.setProperty("--color-text-secondary", "#6c6c73");
+      root.style.setProperty("--color-text-tertiary", "#9b9b9f");
+      root.style.setProperty("--color-input-bg", "#f9fafb");
+      document.body.style.background = `
+        radial-gradient(ellipse at top, rgba(118, 71, 234, 0.04) 0%, transparent 40%),
+        radial-gradient(ellipse at bottom right, rgba(0, 195, 255, 0.03) 0%, transparent 40%),
+        #f4f4f5
+      `;
+    }
+    localStorage.setItem("theme", isDarkMode ? "dark" : "light");
+  }, [isDarkMode]);
+
   // --- Modals ---
   const [tokenSelectorOpen, setTokenSelectorOpen] = useState(false);
   const [selectingFor, setSelectingFor] = useState<"from" | "to">("from");
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Derived: the "from" token data and "to" token data
   const fromData = tokenDataMap[fromToken];
@@ -392,12 +439,23 @@ export function SwapCard() {
                 <Timer className="h-3 w-3" />
                 Slippage Tolerance
               </span>
-              <button
-                onClick={() => setSettingsOpen(true)}
-                className="text-[var(--color-text)] hover:text-[var(--uniswap-purple)]"
-              >
-                {slippageTolerance}%
-              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--color-text)] hover:text-[var(--uniswap-purple)]">
+                  {slippageTolerance}%
+                </span>
+                <button
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className="rounded-lg p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--uniswap-purple)] hover:bg-[var(--color-bg-elevated)] transition-colors"
+                  title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+                  aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+                >
+                  {isDarkMode ? (
+                    <Sun className="h-4 w-4" />
+                  ) : (
+                    <Moon className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -520,17 +578,6 @@ export function SwapCard() {
         title={selectingFor === "from" ? "Select token to sell" : "Select token to buy"}
       />
 
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        slippage={slippageTolerance}
-        onSlippageChange={setSlippageTolerance}
-        customSlippage={customSlippage}
-        onCustomSlippageChange={setCustomSlippage}
-        deadline={deadline}
-        onDeadlineChange={setDeadline}
-      />
-    </div>
+      </div>
   );
 }
