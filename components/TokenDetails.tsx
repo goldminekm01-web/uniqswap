@@ -24,6 +24,13 @@ export function TokenDetails() {
   const usdcData = useTokenInfo("usdc");
   const daiData = useTokenInfo("dai");
   const wbtcData = useTokenInfo("wbtc");
+  const nvdaData = useTokenInfo("nvda");
+  const aaplData = useTokenInfo("aapl");
+  const tslaData = useTokenInfo("tsla");
+  const googlData = useTokenInfo("googl");
+  const msftData = useTokenInfo("msft");
+  const amznData = useTokenInfo("amzn");
+  const metaData = useTokenInfo("meta");
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
 
   const tokenDataMap: Record<TokenKey, typeof btcData> = {
@@ -33,6 +40,13 @@ export function TokenDetails() {
     usdc: usdcData,
     dai: daiData,
     wbtc: wbtcData,
+    nvda: nvdaData,
+    aapl: aaplData,
+    tsla: tslaData,
+    googl: googlData,
+    msft: msftData,
+    amzn: amznData,
+    meta: metaData,
   };
 
   const copyAddress = (addr: string) => {
@@ -189,6 +203,13 @@ export function TokenDetails() {
       {renderTokenPanel("dai", "DAI Token Details")}
       {renderTokenPanel("wbtc", "WBTC Token Details")}
       {renderTokenPanel("btc", "BT-c Token Details")}
+      {renderTokenPanel("nvda", "NVDA (NVIDIA) Stock Details")}
+      {renderTokenPanel("aapl", "AAPL (Apple) Stock Details")}
+      {renderTokenPanel("tsla", "TSLA (Tesla) Stock Details")}
+      {renderTokenPanel("googl", "GOOGL (Google) Stock Details")}
+      {renderTokenPanel("msft", "MSFT (Microsoft) Stock Details")}
+      {renderTokenPanel("amzn", "AMZN (Amazon) Stock Details")}
+      {renderTokenPanel("meta", "META (Meta) Stock Details")}
     </section>
   );
 }

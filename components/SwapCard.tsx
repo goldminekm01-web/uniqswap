@@ -35,7 +35,7 @@ import { SettingsModal } from "./SettingsModal";
  *  - Simulated transaction flow (signing → pending → success/failed)
  */
 
-const ALL_TOKENS: TokenKey[] = ["eth", "usdt", "usdc", "dai", "wbtc", "btc"];
+const ALL_TOKENS: TokenKey[] = ["eth", "usdt", "usdc", "dai", "wbtc", "btc", "nvda", "aapl", "tsla", "googl", "msft", "amzn", "meta"];
 
 export function SwapCard() {
   // --- Wallet state ---
@@ -50,6 +50,13 @@ export function SwapCard() {
   const daiData = useTokenInfo("dai");
   const wbtcData = useTokenInfo("wbtc");
   const btcData = useTokenInfo("btc");
+  const nvdaData = useTokenInfo("nvda");
+  const aaplData = useTokenInfo("aapl");
+  const tslaData = useTokenInfo("tsla");
+  const googlData = useTokenInfo("googl");
+  const msftData = useTokenInfo("msft");
+  const amznData = useTokenInfo("amzn");
+  const metaData = useTokenInfo("meta");
 
   const tokenDataMap: Record<TokenKey, typeof ethData> = {
     eth: ethData,
@@ -58,6 +65,13 @@ export function SwapCard() {
     dai: daiData,
     wbtc: wbtcData,
     btc: btcData,
+    nvda: nvdaData,
+    aapl: aaplData,
+    tsla: tslaData,
+    googl: googlData,
+    msft: msftData,
+    amzn: amznData,
+    meta: metaData,
   };
 
   // --- Swap state ---

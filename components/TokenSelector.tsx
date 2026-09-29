@@ -15,7 +15,7 @@ interface TokenSelectorProps {
   title?: string;
 }
 
-const ALL_TOKENS: TokenKey[] = ["eth", "usdt", "usdc", "dai", "wbtc", "btc"];
+const ALL_TOKENS: TokenKey[] = ["eth", "usdt", "usdc", "dai", "wbtc", "btc", "nvda", "aapl", "tsla", "googl", "msft", "amzn", "meta"];
 
 export function TokenSelector({
   isOpen,
@@ -34,6 +34,13 @@ export function TokenSelector({
   const dai = useTokenInfo("dai");
   const wbtc = useTokenInfo("wbtc");
   const btc = useTokenInfo("btc");
+  const nvda = useTokenInfo("nvda");
+  const aapl = useTokenInfo("aapl");
+  const tsla = useTokenInfo("tsla");
+  const googl = useTokenInfo("googl");
+  const msft = useTokenInfo("msft");
+  const amzn = useTokenInfo("amzn");
+  const meta = useTokenInfo("meta");
 
   const tokenDataMap: Record<TokenKey, ReturnType<typeof useTokenInfo>> = {
     eth,
@@ -42,6 +49,13 @@ export function TokenSelector({
     dai,
     wbtc,
     btc,
+    nvda,
+    aapl,
+    tsla,
+    googl,
+    msft,
+    amzn,
+    meta,
   };
 
   const filtered = useMemo(() => {

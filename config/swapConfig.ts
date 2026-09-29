@@ -36,6 +36,8 @@ export interface TokenConfig {
   isNative?: boolean;
   /** Educational USD price used to derive exchange rates between any two tokens. */
   usdPrice: number;
+  /** Token category for UI grouping */
+  category?: "crypto" | "stablecoin" | "stock" | "other";
 }
 
 export interface SwapConfig {
@@ -70,6 +72,14 @@ export interface SwapConfig {
     dai: TokenConfig;
     wbtc: TokenConfig;
     btc: TokenConfig;
+    // Stock tokens (synthetic assets)
+    nvda: TokenConfig;
+    aapl: TokenConfig;
+    tsla: TokenConfig;
+    googl: TokenConfig;
+    msft: TokenConfig;
+    amzn: TokenConfig;
+    meta: TokenConfig;
   };
   /**
    * Exchange configuration.
@@ -89,6 +99,13 @@ export interface SwapConfig {
     dai: number;
     wbtc: number;
     btc: number;
+    nvda: number;
+    aapl: number;
+    tsla: number;
+    googl: number;
+    msft: number;
+    amzn: number;
+    meta: number;
   };
   walletConnect: {
     projectId: string;
@@ -184,6 +201,79 @@ export const SWAP_CONFIG: SwapConfig = {
       icon: "/icons/bt-c-token.svg",
       isNative: false,
       usdPrice: 0.01,
+      category: "crypto",
+    },
+    // Stock tokens (synthetic assets - prices are educational approximations)
+    nvda: {
+      name: "NVIDIA Corporation",
+      symbol: "NVDA",
+      decimals: 2,
+      // Synthetic NVDA token (e.g., from Synthetix, Mirror, or other synthetic asset protocols)
+      contractAddress: "0x0000000000000000000000000000000000000000",
+      icon: "/icons/nvda-token.svg",
+      isNative: false,
+      usdPrice: 900,
+      category: "stock",
+    },
+    aapl: {
+      name: "Apple Inc.",
+      symbol: "AAPL",
+      decimals: 2,
+      contractAddress: "0x0000000000000000000000000000000000000000",
+      icon: "/icons/aapl-token.svg",
+      isNative: false,
+      usdPrice: 180,
+      category: "stock",
+    },
+    tsla: {
+      name: "Tesla Inc.",
+      symbol: "TSLA",
+      decimals: 2,
+      contractAddress: "0x0000000000000000000000000000000000000000",
+      icon: "/icons/tsla-token.svg",
+      isNative: false,
+      usdPrice: 250,
+      category: "stock",
+    },
+    googl: {
+      name: "Alphabet Inc. (Google)",
+      symbol: "GOOGL",
+      decimals: 2,
+      contractAddress: "0x0000000000000000000000000000000000000000",
+      icon: "/icons/googl-token.svg",
+      isNative: false,
+      usdPrice: 140,
+      category: "stock",
+    },
+    msft: {
+      name: "Microsoft Corporation",
+      symbol: "MSFT",
+      decimals: 2,
+      contractAddress: "0x0000000000000000000000000000000000000000",
+      icon: "/icons/msft-token.svg",
+      isNative: false,
+      usdPrice: 420,
+      category: "stock",
+    },
+    amzn: {
+      name: "Amazon.com Inc.",
+      symbol: "AMZN",
+      decimals: 2,
+      contractAddress: "0x0000000000000000000000000000000000000000",
+      icon: "/icons/amzn-token.svg",
+      isNative: false,
+      usdPrice: 180,
+      category: "stock",
+    },
+    meta: {
+      name: "Meta Platforms Inc.",
+      symbol: "META",
+      decimals: 2,
+      contractAddress: "0x0000000000000000000000000000000000000000",
+      icon: "/icons/meta-token.svg",
+      isNative: false,
+      usdPrice: 500,
+      category: "stock",
     },
   },
   exchange: {
@@ -197,6 +287,14 @@ export const SWAP_CONFIG: SwapConfig = {
     dai: 100_000_000, // 100M DAI
     wbtc: 1_000, // 1K WBTC
     btc: 100_000_000, // 100M BT-c
+    // Stock tokens (synthetic assets)
+    nvda: 10_000_000, // 10M NVDA
+    aapl: 10_000_000, // 10M AAPL
+    tsla: 10_000_000, // 10M TSLA
+    googl: 10_000_000, // 10M GOOGL
+    msft: 10_000_000, // 10M MSFT
+    amzn: 10_000_000, // 10M AMZN
+    meta: 10_000_000, // 10M META
   },
   walletConnect: {
     projectId: "", // Set via NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID env var
@@ -204,7 +302,7 @@ export const SWAP_CONFIG: SwapConfig = {
 };
 
 /** All token keys in the system — every token is swappable in either direction. */
-export type TokenKey = "eth" | "usdt" | "usdc" | "dai" | "wbtc" | "btc";
+export type TokenKey = "eth" | "usdt" | "usdc" | "dai" | "wbtc" | "btc" | "nvda" | "aapl" | "tsla" | "googl" | "msft" | "amzn" | "meta";
 
 /** Tokens that can be swapped FROM. All tokens are swappable. */
 export type SwappableTokenKey = TokenKey;
