@@ -464,9 +464,13 @@ function ConnectModal({
   if (!isOpen) return null;
 
   const metaMaskConnector = injected({ target: "metaMask" });
+  const mobile = isMobile();
 
-  // Filter to only show installed wallets
-  const availableWallets = walletOptions.filter((w) => w.checkInstalled());
+  // On mobile, show all wallet options (users connect via WalletConnect/deep links)
+  // On desktop, only show installed wallets
+  const availableWallets = mobile
+    ? walletOptions
+    : walletOptions.filter((w) => w.checkInstalled());
 
   return createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
