@@ -39,7 +39,7 @@ const steps = [
     step: 4,
     title: "Exchange-Rate Calculation",
     description:
-      "A fixed educational exchange rate (1 BT-c = 100 KSH) is used to calculate the estimated output. The system also computes price impact based on virtual pool liquidity.",
+      "Educational USD prices are used to derive exchange rates between any two tokens (e.g. 1 ETH = 3000 USDT, 1 WBTC = 60000 USDT). The system also computes price impact based on virtual pool liquidity.",
     icon: Calculator,
     color: "from-purple-500 to-pink-500",
   },
@@ -57,17 +57,17 @@ export function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="mb-8 rounded-2xl border border-white/10 bg-dark-800/60 p-6 backdrop-blur-xl"
+      className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-card)] p-6 shadow-sm"
     >
-      <h2 className="font-display mb-2 text-2xl font-bold text-white">
+      <h2 className="font-display mb-2 text-2xl font-bold text-[var(--color-text)]">
         How It Works
       </h2>
-      <p className="mb-6 text-sm text-gray-400">
+      <p className="mb-6 text-sm text-[var(--color-text-secondary)]">
         This swap interface demonstrates core Web3 concepts: wallet connection,
         ERC-20 token detection, on-chain balance reading, exchange-rate
         calculation, and simulated swaps. All token addresses and exchange rates
         are configurable in{" "}
-        <code className="rounded bg-dark-900/50 px-1.5 py-0.5 text-xs text-brand-accent">
+        <code className="rounded bg-[var(--color-bg-elevated)] px-1.5 py-0.5 text-xs text-[var(--uniswap-purple)]">
           config/swapConfig.ts
         </code>
         .
@@ -81,7 +81,7 @@ export function HowItWorks() {
           >
             <div className="flex-shrink-0">
               <div
-                className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${step.color}`}
+                className={`relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${step.color}`}
               >
                 <step.icon className="h-5 w-5 text-white" />
                 <span className="absolute -mt-4 text-xs font-bold text-white">
@@ -90,10 +90,10 @@ export function HowItWorks() {
               </div>
             </div>
             <div className="flex-1">
-              <h3 className="font-display font-semibold text-white">
+              <h3 className="font-display font-semibold text-[var(--color-text)]">
                 {step.title}
               </h3>
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
                 {step.description}
               </p>
             </div>
@@ -101,18 +101,18 @@ export function HowItWorks() {
         ))}
       </div>
 
-      <div className="mt-6 border-t border-white/5 pt-4">
-        <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+      <div className="mt-6 border-t border-[var(--color-border)] pt-4">
+        <div className="flex flex-wrap gap-4 text-xs text-[var(--color-text-tertiary)]">
           <span className="flex items-center gap-1">
-            <CheckCircle className="h-3 w-3 text-brand-green" />
+            <CheckCircle className="h-3 w-3 text-[var(--uniswap-green)]" />
             Uses standard ERC-20 ABI
           </span>
           <span className="flex items-center gap-1">
-            <CheckCircle className="h-3 w-3 text-brand-green" />
+            <CheckCircle className="h-3 w-3 text-[var(--uniswap-green)]" />
             Wagmi + Viem for contract reads
           </span>
           <span className="flex items-center gap-1">
-            <CheckCircle className="h-3 w-3 text-brand-green" />
+            <CheckCircle className="h-3 w-3 text-[var(--uniswap-green)]" />
             Responsive & mobile-friendly
           </span>
         </div>

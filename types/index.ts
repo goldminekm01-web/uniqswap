@@ -48,17 +48,6 @@ export type TransactionStatus =
   | "failed";
 
 /**
- * M-Pesa phone number input state.
- * Shown when swapping TO KSH so the user can specify
- * the recipient M-Pesa number for the educational payout.
- */
-export interface MpesaState {
-  number: string;
-  error: string | null;
-  isTouched: boolean;
-}
-
-/**
  * Represents a completed transaction for display.
  */
 export interface TransactionRecord {

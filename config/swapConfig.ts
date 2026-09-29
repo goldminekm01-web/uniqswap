@@ -2,27 +2,20 @@
  * Swap Configuration
  * ===================
  * Central configuration for the Uniswap Web3 swap interface.
- * All token addresses, network settings, token metadata, and exchange rates
+ * All token addresses, network settings, token metadata, and USD prices
  * are defined here so they can be easily changed without touching component code.
  *
- * TOKEN: BT-c (SPL) on Solana via Phantom
- *   Mint: 5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ
- *   Name: BT-c Token
- *   Symbol: BT-c
- *   Decimals: 6
- *   No liquidity — balance detected via Phantom Solana provider only
+ * Tokens supported (normal pairs like known exchanges):
+ *   - ETH  (native, Ethereum mainnet)
+ *   - USDT (ERC-20, Ethereum mainnet)
+ *   - USDC (ERC-20, Ethereum mainnet)
+ *   - DAI  (ERC-20, Ethereum mainnet)
+ *   - WBTC (ERC-20, Ethereum mainnet)
+ *   - BT-c (SPL, Solana — balance read via Phantom Solana provider)
  *
- *   Contract: 0xdac17f958d2ee523a2206206994597c13d831ec7
- *   Name:      Tether USD
- *   Symbol:    USDT
- *   Decimals:  6
- *
- * TOKEN: Ether (ETH) native on Ethereum mainnet
- *   Symbol:    ETH
- *   Decimals:  18
- *
- * The original BT-c Solana address (5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ)
- * is documented below as a reference.
+ * Exchange rates are derived from each token's `usdPrice`:
+ *   rate(from -> to) = usdPrice[from] / usdPrice[to]
+ * These are fixed educational rates — edit here to change.
  */
 
 export interface TokenConfig {
@@ -41,6 +34,8 @@ export interface TokenConfig {
   icon: string;
   /** Whether the token is native (ETH) vs an ERC-20 contract */
   isNative?: boolean;
+  /** Educational USD price used to derive exchange rates between any two tokens. */
+  usdPrice: number;
 }
 
 export interface SwapConfig {
@@ -69,31 +64,31 @@ export interface SwapConfig {
     tokenLegacyProgramId: string;
   };
   tokens: {
-    btc: TokenConfig;
     eth: TokenConfig;
     usdt: TokenConfig;
-    ksh: TokenConfig;
+    usdc: TokenConfig;
+    dai: TokenConfig;
+    wbtc: TokenConfig;
+    btc: TokenConfig;
   };
   /**
-   * Exchange rates: how many KSH you receive for 1 unit of each from-token.
-   * Reverse direction (KSH → token) uses 1 / rate.
-   * These are fixed educational exchange rates — edit here to change.
+   * Exchange configuration.
+   * Rates are derived from each token's `usdPrice` (see getExchangeRate).
    */
   exchange: {
-    rates: {
-      btc: number;
-      eth: number;
-      usdt: number;
-    };
     /** Slippage tolerance in percent */
     slippageTolerance: number;
+    /** Transaction deadline in minutes */
+    transactionDeadlineMinutes: number;
   };
   /** Virtual pool size used for price-impact simulation (educational) */
   virtualPoolLiquidity: {
-    btc: number;
     eth: number;
     usdt: number;
-    ksh: number;
+    usdc: number;
+    dai: number;
+    wbtc: number;
+    btc: number;
   };
   walletConnect: {
     projectId: string;
@@ -104,7 +99,7 @@ export const SWAP_CONFIG: SwapConfig = {
   app: {
     name: "Uniswap",
     version: "1.0.0",
-    description: "Web3 swap interface for selling native coins to Ksh",
+    description: "Web3 swap interface for normal token pairs (ETH, USDT, USDC, DAI, WBTC)",
   },
   network: {
     chainId: 1,
@@ -127,19 +122,6 @@ export const SWAP_CONFIG: SwapConfig = {
     tokenLegacyProgramId: "TokenkegQfy2P4DT9Ej6mwoCliNV4z6wN67kEgsyqv9q",
   },
   tokens: {
-    btc: {
-      name: "BT-c Token",
-      symbol: "BT-c",
-      decimals: 6,
-      // BT-c SPL token on Solana. Mint: 5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ
-      // No liquidity — detected via Phantom's Solana provider, not swappable.
-      contractAddress: "5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ",
-      solanaMint: "5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ",
-      chain: "solana",
-      tokenProgram: "token-2022",
-      icon: "/icons/bt-c-token.svg",
-      isNative: false,
-    },
     eth: {
       name: "Ether",
       symbol: "ETH",
@@ -147,6 +129,7 @@ export const SWAP_CONFIG: SwapConfig = {
       contractAddress: "",
       icon: "/icons/eth-token.svg",
       isNative: true,
+      usdPrice: 3000,
     },
     usdt: {
       name: "Tether USD",
@@ -156,40 +139,75 @@ export const SWAP_CONFIG: SwapConfig = {
       contractAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7",
       icon: "/icons/usdt-token.svg",
       isNative: false,
+      usdPrice: 1,
     },
-    ksh: {
-      name: "KSH Token",
-      symbol: "KSH",
-      decimals: 18,
-      contractAddress: "0x0000000000000000000000000000000000000000",
-      icon: "/icons/ksh-token.svg",
+    usdc: {
+      name: "USD Coin",
+      symbol: "USDC",
+      decimals: 6,
+      // Real USDC ERC-20 contract on Ethereum mainnet
+      contractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      icon: "/icons/usdc-token.svg",
       isNative: false,
+      usdPrice: 1,
+    },
+    dai: {
+      name: "Dai",
+      symbol: "DAI",
+      decimals: 18,
+      // Real DAI ERC-20 contract on Ethereum mainnet
+      contractAddress: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      icon: "/icons/dai-token.svg",
+      isNative: false,
+      usdPrice: 1,
+    },
+    wbtc: {
+      name: "Wrapped Bitcoin",
+      symbol: "WBTC",
+      decimals: 8,
+      // Real WBTC ERC-20 contract on Ethereum mainnet
+      contractAddress: "0x2260FAC5E554396273dC8f959B4534f0E1Db5a3D",
+      icon: "/icons/wbtc-token.svg",
+      isNative: false,
+      usdPrice: 60000,
+    },
+    btc: {
+      name: "BT-c Token",
+      symbol: "BT-c",
+      decimals: 6,
+      // BT-c SPL token on Solana. Mint: 5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ
+      // Balance is read via Phantom's Solana provider + Solana RPC.
+      contractAddress: "5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ",
+      solanaMint: "5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ",
+      chain: "solana",
+      tokenProgram: "token-2022",
+      icon: "/icons/bt-c-token.svg",
+      isNative: false,
+      usdPrice: 0.01,
     },
   },
   exchange: {
-    rates: {
-      btc: 100,  // 1 BT-c = 100 KSH (educational rate)
-      eth: 200000,  // 1 ETH = 200,000 KSH
-      usdt: 100,  // 1 USDT = 100 KSH
-    },
     slippageTolerance: 0.5, // 0.5%
+    transactionDeadlineMinutes: 20,
   },
   virtualPoolLiquidity: {
-    btc: 100_000_000,   // 100M BT-c
-    eth: 100_000,       // 100K ETH
-    usdt: 100_000_000,  // 100M USDT
-    ksh: 10_000_000_000, // 10B KSH
+    eth: 100_000, // 100K ETH
+    usdt: 100_000_000, // 100M USDT
+    usdc: 100_000_000, // 100M USDC
+    dai: 100_000_000, // 100M DAI
+    wbtc: 1_000, // 1K WBTC
+    btc: 100_000_000, // 100M BT-c
   },
   walletConnect: {
     projectId: "", // Set via NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID env var
   },
 };
 
-/** Tokens that can be swapped FROM (to KSH). Includes BT-c even though it has no liquidity. */
-export type SwappableTokenKey = "btc" | "eth" | "usdt";
+/** All token keys in the system — every token is swappable in either direction. */
+export type TokenKey = "eth" | "usdt" | "usdc" | "dai" | "wbtc" | "btc";
 
-/** All token keys in the system. */
-export type TokenKey = SwappableTokenKey | "ksh";
+/** Tokens that can be swapped FROM. All tokens are swappable. */
+export type SwappableTokenKey = TokenKey;
 
 /**
  * Original BT-c Solana SPL token mint address (documented for reference).
@@ -209,7 +227,6 @@ export function getEvmAddress(token: TokenConfig): string | null {
   const addr = token.evmContractAddress || token.contractAddress;
   if (!addr) return null;
   // Reject the zero address — it passes regex validation but is not a real contract.
-  // This prevents on-chain read errors for simulated tokens like KSH.
   if (addr === "0x0000000000000000000000000000000000000000") return null;
   return addr;
 }

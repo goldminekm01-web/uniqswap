@@ -393,9 +393,7 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
   const [error, setError] = useState<string | null>(null);
 
   // Re-fetch balance when the Phantom Solana connection state changes.
-  // This is more reliable than relying solely on the on('connect') event
-  // listener, which may not fire in all Phantom versions or provider modes.
-  const { isConnected } = usePhantomSolana();
+  const { isConnected, publicKey: solanaPubkey } = usePhantomSolana();
 
   useEffect(() => {
     if (!mintAddress) return;
@@ -407,34 +405,43 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
     const fetchBalance = async () => {
       try {
         const solanaProvider = getPhantomProvider();
-        console.log('[Phantom Solana] fetchBalance:', {
-          hasProvider: !!solanaProvider,
-          isConnected: solanaProvider?.isConnected,
-          hasPublicKey: !!solanaProvider?.publicKey,
-          hasRequest: typeof solanaProvider?.request === 'function',
-        });
         if (!solanaProvider) {
           if (!cancelled) {
-            // Mobile: Phantom app was opened via deep link but provider
-            // not available in the regular browser — show 500 BT-c
-            // fallback since user has indicated they want Phantom.
-            if (isConnected) {
-              setBalance('500');
-              setBalanceFormatted('500');
-            } else {
-              setBalance('0');
-              setBalanceFormatted('0');
-            }
+            setBalance('0');
+            setBalanceFormatted('0');
             setIsLoading(false);
           }
           return;
         }
 
-        // Query user's Token-2022 token accounts.
-        // Use getTokenAccountsByOwner with the user's pubkey to fetch ONLY the
-        // user's accounts (not getTokenLargestAccounts which returns ALL accounts).
-        let accounts: any[] = [];
+        // Get the user's Solana public key
+        let solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey;
         
+        // If not connected, try silent connect
+        if (!solPubkey && !solanaProvider.isConnected) {
+          try {
+            const connectResp = await solanaProvider.connect({ onlyIfTrusted: true });
+            solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey || connectResp?.publicKey?.toString?.();
+          } catch {
+            // Silent connect failed — user hasn't approved yet
+            if (!cancelled) {
+              setBalance('0');
+              setBalanceFormatted('0');
+              setIsLoading(false);
+            }
+            return;
+          }
+        }
+
+        if (!solPubkey) {
+          if (!cancelled) {
+            setBalance('0');
+            setBalanceFormatted('0');
+            setIsLoading(false);
+          }
+          return;
+        }
+
         // Compute programId for Token-2022 filter
         const programId =
             tokenProgram === 'token-2022'
@@ -448,108 +455,78 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
           filter.programId = programId;
         }
 
-        // Get user's Solana public key — try multiple sources for reliability
-        let solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey;
-
-        // If not connected yet, try silent connect
-        if (!solPubkey && !solanaProvider.isConnected) {
+        // Query the user's token accounts for the BT-c mint address
+        let accounts: any[] = [];
+        
+        // Method 1: Try Phantom's request() first
+        if (typeof solanaProvider.request === 'function') {
           try {
-            const connectOpts: any = { features: ['solana:rpc'], onlyIfTrusted: true };
-            const connectResp = await solanaProvider.connect(connectOpts);
-            solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey || connectResp?.publicKey?.toString?.();
-          } catch {
-            try {
-              const connectResp = await solanaProvider.connect({ onlyIfTrusted: true });
-              solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey || connectResp?.publicKey?.toString?.();
-            } catch {
-              // Silent connect failed — user hasn't approved yet.
-              // On mobile, isConnected was set by initiateMobilePhantomConnect.
-              if (!cancelled) {
-                if (isConnected) {
-                  setBalance('500');
-                  setBalanceFormatted('500');
-                } else {
-                  setBalance('0');
-                  setBalanceFormatted('0');
-                }
-                setIsLoading(false);
+            const result = await solanaProvider.request({
+              method: 'getTokenAccountsByOwner',
+              params: [
+                solPubkey,
+                filter,
+                { encoding: 'jsonParsed' },
+              ],
+            });
+            let rawAccounts: any[] = [];
+            if (Array.isArray(result)) rawAccounts = result;
+            else rawAccounts = result?.value || result?.result?.value || result || [];
+            accounts = rawAccounts.map((acc: any) => {
+              const info = acc?.account?.data?.parsed?.info;
+              const tokenAmount = info?.tokenAmount;
+              if (tokenAmount) {
+                return {
+                  amount: tokenAmount.amount || '0',
+                  decimals: tokenAmount.decimals || 6,
+                  uiAmount: tokenAmount.uiAmount !== undefined ? tokenAmount.uiAmount : undefined,
+                };
               }
-              return;
-            }
+              return null;
+            }).filter(Boolean);
+          } catch {
+            // request() failed — try fetch fallback
           }
         }
 
-        // If still no pubkey (Phantom connected but publicKey not set on provider),
-        // try non-silent connect to force key retrieval
-        if (!solPubkey) {
+        // Method 2: Fallback — direct Solana RPC via fetch
+        if (accounts.length === 0) {
           try {
-            await solanaProvider.connect({ features: ['solana:rpc'] });
-            solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey;
-          } catch {
-            try {
-              await solanaProvider.connect();
-              solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey;
-            } catch {
-              // Non-silent connect failed — user hasn't approved yet.
-              // On mobile, isConnected was set by initiateMobilePhantomConnect.
-              if (!cancelled) {
-                if (isConnected) {
-                  setBalance('500');
-                  setBalanceFormatted('500');
-                } else {
-                  setBalance('0');
-                  setBalanceFormatted('0');
-                }
-                setIsLoading(false);
-              }
-              return;
-            }
-          }
-        }
-
-        if (solPubkey) {
-          // Method 1: Try Phantom's request() first (works with mock)
-          if (typeof solanaProvider.request === 'function') {
-            try {
-              const result = await solanaProvider.request({
+            const resp = await fetch(SWAP_CONFIG.network.solanaRpcUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                json: 2.0,
+                id: 1,
                 method: 'getTokenAccountsByOwner',
                 params: [
                   solPubkey,
-                  filter,
+                  { mint: mintAddress, programId },
                   { encoding: 'jsonParsed' },
                 ],
-              });
-              console.log('[Phantom Solana] request() result:', result);
-              // Handle multiple possible response formats
-              let rawAccounts: any[] = [];
-              if (Array.isArray(result)) rawAccounts = result;
-              else rawAccounts = result?.value || result?.result?.value || result || [];
-              accounts = rawAccounts.map((acc: any) => {
-                const info = acc?.account?.data?.parsed?.info;
-                const tokenAmount = info?.tokenAmount;
-                if (tokenAmount) {
-                  return {
-                    amount: tokenAmount.amount || '0',
-                    decimals: tokenAmount.decimals || 6,
-                    uiAmount: tokenAmount.uiAmount !== undefined ? tokenAmount.uiAmount : undefined,
-                  };
-                }
-                return null;
-              }).filter(Boolean);
-            } catch {
-              // request() failed — try fetch fallback below
+              }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+              throw new Error(data.error?.message || `RPC ${resp.status}`);
             }
-          }
-
-        console.log('[Phantom Solana] fetch fallback to API key for', { solPubkey, mintAddress, programId });
-
-        // Method 2: Fallback — direct Solana RPC via fetch.
-          // Phantom's request() may not support JSON-RPC calls without the
-          // 'solana:rpc' feature flag, or may not exist at all.
-          // A direct fetch to the public Solana RPC is the reliable fallback.
-          if (accounts.length === 0) {
+            const rawAccounts = data?.result?.value || [];
+            accounts = rawAccounts.map((acc: any) => {
+              const info = acc?.account?.data?.parsed?.info;
+              const tokenAmount = info?.tokenAmount;
+              if (tokenAmount) {
+                return {
+                  amount: tokenAmount.amount || '0',
+                  decimals: tokenAmount.decimals || 6,
+                  uiAmount: tokenAmount.uiAmount !== undefined ? tokenAmount.uiAmount : undefined,
+                };
+              }
+              return null;
+            }).filter(Boolean);
+          } catch (fetchErr) {
+            // Fallback RPC endpoint
             try {
-              const resp = await fetch(SWAP_CONFIG.network.solanaRpcUrl, {
+              const resp2 = await fetch('https://rpc.ankr.com/solana', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -563,12 +540,9 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
                   ],
                 }),
               });
-              const data = await resp.json();
-              if (!resp.ok || data.error) {
-                throw new Error(data.error?.message || `RPC ${resp.status}`);
-              }
-              const rawAccounts = data?.result?.value || [];
-              accounts = rawAccounts.map((acc: any) => {
+              const data2 = await resp2.json();
+              const rawAccounts2 = data2?.result?.value || [];
+              accounts = rawAccounts2.map((acc: any) => {
                 const info = acc?.account?.data?.parsed?.info;
                 const tokenAmount = info?.tokenAmount;
                 if (tokenAmount) {
@@ -580,46 +554,14 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
                 }
                 return null;
               }).filter(Boolean);
-            } catch (fetchErr) {
-              // Fallback RPC endpoint
-              try {
-                const resp2 = await fetch('https://rpc.ankr.com/solana', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    json: 2.0,
-                    id: 1,
-                    method: 'getTokenAccountsByOwner',
-                    params: [
-                      solPubkey,
-                      { mint: mintAddress, programId },
-                      { encoding: 'jsonParsed' },
-                    ],
-                  }),
-                });
-                const data2 = await resp2.json();
-                const rawAccounts2 = data2?.result?.value || [];
-                accounts = rawAccounts2.map((acc: any) => {
-                  const info = acc?.account?.data?.parsed?.info;
-                  const tokenAmount = info?.tokenAmount;
-                  if (tokenAmount) {
-                    return {
-                      amount: tokenAmount.amount || '0',
-                      decimals: tokenAmount.decimals || 6,
-                      uiAmount: tokenAmount.uiAmount !== undefined ? tokenAmount.uiAmount : undefined,
-                    };
-                  }
-                  return null;
-                }).filter(Boolean);
-              } catch {
-                console.warn('[Phantom Solana] RPC endpoints blocked (expected with Phantom). Using 500 BT-c fallback.', {
-                  primary: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
-                  solPubkey,
-                  mint: mintAddress,
-                  programId
-                });
-                accounts = [];
-              }
+            } catch {
+              console.warn('[Phantom Solana] Could not fetch balance from RPC. Wallet may not have BT-c tokens.', {
+                primary: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+                solPubkey,
+                mint: mintAddress,
+                programId
+              });
+              accounts = [];
             }
           }
         }
@@ -633,26 +575,16 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
 
           if (!cancelled) {
             const formatted = (rawAmount / Math.pow(10, decimals)).toFixed(decimals);
-            console.log('[Phantom Solana] Balance found:', { formatted, rawAmount, decimals });
+            console.log('[Phantom Solana] Real balance found:', { formatted, rawAmount, decimals });
             setBalance(String(rawAmount));
             setBalanceFormatted(formatted);
           }
         } else {
           if (!cancelled) {
-            // Phantom wallet is connected but on-chain balance couldn't be fetched
-            // (common when Phantom's extension blocks fetch to external RPC endpoints).
-            // Display a standard educational balance of 500 BT-c so the swap
-            // interface remains functional for the educational demo.
-            // Check both the Phantom provider's isConnected AND the React state
-            // from usePhantomSolana — the provider property may not be set
-            // immediately after connect() resolves in all Phantom versions.
-            if (isConnected || solanaProvider?.isConnected) {
-              setBalance('500');
-              setBalanceFormatted('500');
-            } else {
-              setBalance('0');
-              setBalanceFormatted('0');
-            }
+            // No token accounts found — wallet has 0 BT-c
+            console.log('[Phantom Solana] No BT-c accounts found for wallet:', solPubkey);
+            setBalance('0');
+            setBalanceFormatted('0');
           }
         }
 
@@ -669,7 +601,7 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
 
     void fetchBalance();
 
-    // Listen for Phantom Solana provider connect events.
+    // Listen for Phantom Solana provider connect events
     const handleProviderConnect = () => {
       if (!cancelled) {
         console.log('[Phantom Solana] Connect event received, re-fetching balance');
@@ -677,17 +609,13 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
       }
     };
 
-    // Direct polling: checks Phantom provider state every 2 seconds.
-    // This is a reliable fallback when the on('connect') event doesn't fire
-    // (some Phantom versions/providers don't emit it consistently).
+    // Direct polling: checks Phantom provider state every 2 seconds
     let pollInterval: ReturnType<typeof setInterval> | null = null;
     let retried = false;
     pollInterval = setInterval(() => {
       if (cancelled) return;
       const p = getPhantomProvider();
       if (p?.isConnected && p?.publicKey) {
-        // Provider is connected — ensure we have the latest balance.
-        // Only re-fetch once per connection (avoid repeated calls).
         if (!retried) {
           retried = true;
           console.log('[Phantom Solana] Polling detected connection, re-fetching balance');
@@ -701,9 +629,7 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
       if (pollInterval && !cancelled) clearInterval(pollInterval);
     }, 60000);
 
-    // Register Phantom native event listeners for connect/account changes.
-    // This is a best-effort registration — Phantom may inject its provider
-    // asynchronously, in which case the 2s polling above handles it.
+    // Register Phantom native event listeners
     const tryRegister = (): boolean => {
       const p = getPhantomProvider();
       if (p && p.on) {
@@ -714,8 +640,6 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
       return false;
     };
 
-    // Attempt listener registration now and every 500ms for 15s.
-    // The 2s polling above handles balance re-fetch independently.
     let registered = tryRegister();
     if (!registered) {
       const registerPoll = setInterval(() => {
@@ -738,7 +662,7 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
         try { p.removeListener('accountChanged', handleProviderConnect); } catch {}
       }
     };
-  }, [mintAddress, tokenProgram, isConnected]);
+  }, [mintAddress, tokenProgram, isConnected, solanaPubkey]);
 
   return {
     balance,

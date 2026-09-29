@@ -21,14 +21,18 @@ export function TokenDetails() {
   const btcData = useTokenInfo("btc");
   const ethData = useTokenInfo("eth");
   const usdtData = useTokenInfo("usdt");
-  const kshData = useTokenInfo("ksh");
+  const usdcData = useTokenInfo("usdc");
+  const daiData = useTokenInfo("dai");
+  const wbtcData = useTokenInfo("wbtc");
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
 
   const tokenDataMap: Record<TokenKey, typeof btcData> = {
     btc: btcData,
     eth: ethData,
     usdt: usdtData,
-    ksh: kshData,
+    usdc: usdcData,
+    dai: daiData,
+    wbtc: wbtcData,
   };
 
   const copyAddress = (addr: string) => {
@@ -94,14 +98,14 @@ export function TokenDetails() {
     }
 
     return (
-      <div className="rounded-2xl border border-white/10 bg-dark-800/60 p-6 backdrop-blur-xl">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-card)] p-6 shadow-sm">
         <div className="mb-4 flex items-center gap-3">
           <img
             src={tokenConfig.icon}
             alt={symbol}
             className="h-8 w-8 rounded-full"
           />
-          <h3 className="font-display text-lg font-semibold text-white">
+          <h3 className="font-display text-lg font-semibold text-[var(--color-text)]">
             {title}
           </h3>
         </div>
@@ -112,24 +116,24 @@ export function TokenDetails() {
               key={row.label}
               className="flex items-center gap-3 text-sm"
             >
-              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-dark-900/50">
-                <row.icon className="h-4 w-4 text-gray-400" />
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-bg-elevated)]">
+                <row.icon className="h-4 w-4 text-[var(--color-text-secondary)]" />
               </div>
               <div className="flex-1">
-                <span className="text-xs text-gray-500">{row.label}</span>
+                <span className="text-xs text-[var(--color-text-tertiary)]">{row.label}</span>
                 <div className="flex items-center gap-2">
                   {row.isAddress && row.address ? (
                     <>
-                      <code className="text-xs text-gray-300">
+                      <code className="text-xs text-[var(--color-text-secondary)]">
                         {shortenAddress(row.address)}
                       </code>
                       <button
                         onClick={() => copyAddress(row.address!)}
-                        className="rounded p-0.5 text-gray-500 hover:text-white"
+                        className="rounded p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text)]"
                         title="Copy address"
                       >
                         {copiedAddress === row.address ? (
-                          <Check className="h-3 w-3 text-brand-green" />
+                          <Check className="h-3 w-3 text-[var(--uniswap-green)]" />
                         ) : (
                           <Copy className="h-3 w-3" />
                         )}
@@ -138,7 +142,7 @@ export function TokenDetails() {
                         href={`${explorerUrl}/address/${row.address}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-gray-500 hover:text-brand-PRIMARY"
+                        className="text-[var(--color-text-tertiary)] hover:text-[var(--uniswap-purple)]"
                         title="View on block explorer"
                       >
                         <ExternalLink className="h-3 w-3" />
@@ -148,14 +152,14 @@ export function TokenDetails() {
                     <span
                       className={`text-xs font-medium ${
                         row.status
-                          ? "text-brand-green"
-                          : "text-brand-accent"
+                          ? "text-[var(--uniswap-green)]"
+                          : "text-[var(--uniswap-accent)]"
                       }`}
                     >
                       {row.status ? "✓ Detected" : "⚠ Not EVM Compatible"}
                     </span>
                   ) : (
-                    <span className="text-gray-200">{row.value}</span>
+                    <span className="text-[var(--color-text)]">{row.value}</span>
                   )}
                 </div>
               </div>
@@ -164,8 +168,8 @@ export function TokenDetails() {
         </div>
 
         {tokenData.error && (
-          <div className="mt-3 rounded-lg border border-brand-red/20 bg-brand-red/5 p-2">
-            <span className="text-xs text-brand-red">
+          <div className="mt-3 rounded-lg border border-[var(--uniswap-red)]/20 bg-[var(--uniswap-red)]/5 p-2">
+            <span className="text-xs text-[var(--uniswap-red)]">
               Error fetching token data: {tokenData.error}
             </span>
           </div>
@@ -177,12 +181,14 @@ export function TokenDetails() {
   return (
     <section
       id="details"
-      className="mb-8 grid gap-6 md:grid-cols-2"
+      className="grid gap-6 md:grid-cols-2"
     >
-      {renderTokenPanel("btc", "BT-c Token Details")}
       {renderTokenPanel("eth", "ETH (Native) Details")}
       {renderTokenPanel("usdt", "USDT Token Details")}
-      {renderTokenPanel("ksh", "KSH Token Details")}
+      {renderTokenPanel("usdc", "USDC Token Details")}
+      {renderTokenPanel("dai", "DAI Token Details")}
+      {renderTokenPanel("wbtc", "WBTC Token Details")}
+      {renderTokenPanel("btc", "BT-c Token Details")}
     </section>
   );
 }

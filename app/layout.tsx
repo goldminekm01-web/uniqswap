@@ -5,7 +5,7 @@ import "@/app/globals.css";
 export const metadata: Metadata = {
   title: "Uniswap — Web3 Swap Interface",
   description:
-    "Swap native tokens (ETH, USDT, BT-c) to KSH. Connect your wallet to view balances and swap.",
+    "Swap normal token pairs (ETH, USDT, USDC, DAI, WBTC). Connect your wallet to view balances and swap.",
   keywords: [
     "Web3",
     "Uniswap",
@@ -15,16 +15,18 @@ export const metadata: Metadata = {
     "Brave",
     "Base Wallet",
     "ERC-20",
-    "BT-c",
-    "Solana SPL Token",
-    "KSH",
+    "ETH",
+    "USDT",
+    "USDC",
+    "DAI",
+    "WBTC",
     "Ethereum",
   ],
   authors: [{ name: "Lazurus Group" }],
   openGraph: {
     title: "Uniswap — Web3 Swap Interface",
     description:
-      "Swap native tokens to KSH. Connect your wallet to view balances and swap.",
+      "Swap normal token pairs (ETH, USDT, USDC, DAI, WBTC). Connect your wallet to view balances and swap.",
     url: "https://lazurusgroup.com",
     type: "website",
   },

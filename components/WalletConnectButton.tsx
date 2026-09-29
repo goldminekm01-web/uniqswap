@@ -202,7 +202,7 @@ export function WalletConnectButton({
         <button
           data-wallet-trigger
           onClick={() => setShowDropdown(!showDropdown)}
-          className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
+          className="flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-1.5 text-sm font-medium text-[var(--color-text)] backdrop-blur transition-all hover:border-[var(--color-border)] hover:bg-[var(--color-input-bg)]"
         >
           <span className="hidden sm:inline">{shortenAddress(address)}</span>
           {compact && <span className="inline sm:hidden">Account</span>}
@@ -211,7 +211,7 @@ export function WalletConnectButton({
             alt="Wallet"
             className="h-5 w-5 rounded-full"
           />
-          <ChevronDown className="h-3 w-3 text-gray-400 transition-transform" />
+          <ChevronDown className="h-3 w-3 text-[var(--color-text-tertiary)] transition-transform" />
         </button>
 
         {showDropdown && (
@@ -235,7 +235,7 @@ export function WalletConnectButton({
       <button
         data-wallet-trigger
         onClick={() => setShowModal(true)}
-        className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
+        className="flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-1.5 text-sm font-medium text-[var(--color-text)] backdrop-blur transition-all hover:border-[var(--color-border)] hover:bg-[var(--color-input-bg)]"
       >
         <span className="hidden sm:inline">Open Phantom…</span>
         {compact && <span className="inline sm:hidden">Connecting…</span>}
@@ -244,7 +244,7 @@ export function WalletConnectButton({
           alt="Phantom"
           className="h-5 w-5 rounded-full"
         />
-        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+        <Loader2 className="h-4 w-4 animate-spin text-[var(--color-text-tertiary)]" />
       </button>
     );
   }
@@ -256,7 +256,7 @@ export function WalletConnectButton({
         <button
           data-wallet-trigger
           onClick={() => setShowDropdown(!showDropdown)}
-          className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-dark-800/30 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/20 hover:bg-dark-800/50"
+          className="flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-1.5 text-sm font-medium text-[var(--color-text)] backdrop-blur transition-all hover:border-[var(--color-border)] hover:bg-[var(--color-input-bg)]"
         >
           <span className="hidden sm:inline">
             {shortenAddress(solanaPubkey, 6)}
@@ -267,7 +267,7 @@ export function WalletConnectButton({
             alt="Phantom"
             className="h-5 w-5 rounded-full"
           />
-          <ChevronDown className="h-3 w-3 text-gray-400 transition-transform" />
+          <ChevronDown className="h-3 w-3 text-[var(--color-text-tertiary)] transition-transform" />
         </button>
         {showDropdown && (
           <ConnectDropdown
@@ -293,7 +293,7 @@ export function WalletConnectButton({
     return (
       <button
         disabled
-        className="flex items-center gap-2 rounded-xl border border-white/10 bg-dark-800/30 px-4 py-2 text-sm font-medium text-gray-300 backdrop-blur"
+        className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] backdrop-blur"
       >
         <Loader2 className="h-4 w-4 animate-spin" />
         <span>{connectingConnector || "Connecting…"}</span>
@@ -306,7 +306,7 @@ export function WalletConnectButton({
     <>
       <button
         onClick={() => setShowModal(true)}
-        className={`cursor-pointer rounded-xl border border-brand-PRIMARY/30 bg-gradient-to-r from-brand-PRIMARY/10 to-blue-500/10 px-5 py-2.5 text-sm font-medium text-brand-PRIMARY transition-all hover:from-brand-PRIMARY/20 hover:to-blue-500/20 hover:shadow-neon ${
+        className={`cursor-pointer rounded-xl border border-[var(--uniswap-purple)]/30 bg-gradient-to-r from-[var(--uniswap-purple)]/10 to-blue-500/10 px-5 py-2.5 text-sm font-medium text-[var(--uniswap-purple)] transition-all hover:from-[var(--uniswap-purple)]/20 hover:to-blue-500/20 hover:shadow-neon ${
           compact ? "px-3 py-1.5 text-xs" : ""
         }`}
       >
@@ -362,14 +362,14 @@ function ConnectDropdown({
 
   return createPortal(
     <div
-      className="fixed z-[998] w-72 rounded-2xl border border-white/10 bg-dark-800/30 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl"
+      className="fixed z-[998] w-72 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-2 shadow-2xl shadow-black/50 backdrop-blur-xl"
       style={{ top: `${top}px`, right: `${right}px` }}
     >
-      <div className="flex items-center justify-between px-3 py-2.5 text-xs text-gray-400">
+      <div className="flex items-center justify-between px-3 py-2.5 text-xs text-[var(--color-text-tertiary)]">
         <span>{shortenAddress(address, 6)}</span>
         <button
           onClick={copyAddress}
-          className="rounded p-0.5 text-gray-400 hover:bg-white/10 hover:text-white"
+          className="rounded p-0.5 text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-card)] hover:text-[var(--color-text)]"
         >
           {copied ? (
             <Check className="h-3 w-3" />
@@ -378,11 +378,11 @@ function ConnectDropdown({
           )}
         </button>
       </div>
-      <div className="my-1 border-t border-white/5" />
+      <div className="my-1 border-t border-[var(--color-border)]" />
       <button
         onClick={onDisconnect}
         disabled={disconnecting}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:border-white/30 hover:bg-white/15 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2.5 text-sm font-medium text-[var(--color-text)] transition-all duration-200 hover:border-[var(--uniswap-purple)]/30 hover:bg-[var(--color-bg-card)] disabled:opacity-50"
       >
         {disconnecting ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -446,25 +446,25 @@ function ConnectModal({
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-dark-800/20 p-6 shadow-2xl shadow-black/60 backdrop-blur-xl">
+      <div className="relative z-10 w-full max-w-md rounded-3xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-6 shadow-2xl shadow-black/60 backdrop-blur-xl">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-2xl font-semibold text-white">
+          <h3 className="font-display text-2xl font-semibold text-[var(--color-text)]">
             Connect Wallet
           </h3>
           <button
             onClick={onClose}
-            className="rounded-xl p-1.5 text-gray-400 opacity-60 hover:opacity-100 hover:bg-white/5 hover:text-white"
+            className="rounded-xl p-1.5 text-[var(--color-text-tertiary)] opacity-60 hover:opacity-100 hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text)]"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="mt-2 text-sm text-gray-400">
+        <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
           Connect your wallet to swap tokens.
         </p>
 
         {connectError && (
-          <div className="mt-3 rounded-xl border border-brand-red/20 bg-brand-red/5 p-3 text-sm text-brand-red">
+          <div className="mt-3 rounded-xl border border-[var(--uniswap-red)]/20 bg-[var(--uniswap-red)]/5 p-3 text-sm text-[var(--uniswap-red)]">
             {connectError}
           </div>
         )}
@@ -486,7 +486,7 @@ function ConnectModal({
                   }
                 }}
                 disabled={connectingConnector !== null}
-                className="flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-3 text-left transition-all hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
+                className="flex w-full items-center gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 text-left transition-all hover:border-[var(--color-border)] hover:bg-[var(--color-bg-card)] disabled:opacity-50"
               >
                 <img
                   src={wallet.icon}
@@ -498,13 +498,13 @@ function ConnectModal({
                   }}
                 />
                 <div className="flex-1">
-                  <span className="font-medium text-white">{wallet.name}</span>
+                  <span className="font-medium text-[var(--color-text)]">{wallet.name}</span>
                 </div>
                 <div className="flex-shrink-0 text-right">
                   {isConnecting ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    <Loader2 className="h-4 w-4 animate-spin text-[var(--color-text-tertiary)]" />
                   ) : (
-                    <span className="text-xs text-brand-green">Click to connect</span>
+                    <span className="text-xs text-[var(--uniswap-green)]">Click to connect</span>
                   )}
                 </div>
               </button>
@@ -516,7 +516,7 @@ function ConnectModal({
           href="https://walletconnect.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 text-center text-sm text-gray-300 opacity-60 grayscale transition-all hover:border-white/20 hover:bg-white/10 hover:opacity-100 hover:grayscale-0"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 text-center text-sm text-[var(--color-text-secondary)] opacity-60 grayscale transition-all hover:border-[var(--color-border)] hover:bg-[var(--color-bg-card)] hover:opacity-100 hover:grayscale-0"
         >
           <img
             src="/icons/walletconnect.svg"
@@ -524,7 +524,7 @@ function ConnectModal({
             className="h-6 w-6"
           />
           <span>WalletConnect</span>
-          <ExternalLink className="h-3 w-3 text-gray-500" />
+          <ExternalLink className="h-3 w-3 text-[var(--color-text-tertiary)]" />
         </a>
       </div>
     </div>,

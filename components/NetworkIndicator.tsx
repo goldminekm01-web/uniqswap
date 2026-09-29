@@ -26,31 +26,31 @@ export function NetworkIndicator() {
   const isConfiguredChain = chainId === SWAP_CONFIG.network.chainId;
 
   return (
-    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-dark-800/40 px-3 py-1.5 text-sm">
+    <div className="flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-1.5 text-sm">
       {isOnline ? (
-        <CheckCircle className="h-4 w-4 text-brand-green" />
+        <CheckCircle className="h-4 w-4 text-[var(--uniswap-green)]" />
       ) : (
-        <WifiOff className="h-4 w-4 text-brand-red" />
+        <WifiOff className="h-4 w-4 text-[var(--uniswap-red)]" />
       )}
       <span
-        className={`hidden sm:inline text-xs ${isOnline ? "text-gray-300" : "text-brand-red"}`}
+        className={`hidden sm:inline text-xs ${isOnline ? "text-[var(--color-text-secondary)]" : "text-[var(--uniswap-red)]"}`}
       >
         {isOnline ? "Online" : "Offline"}
       </span>
-      <span className="text-gray-600">·</span>
+      <span className="text-[var(--color-text-tertiary)]">·</span>
       <span
-        className={`inline-flex items-center gap-1 rounded-md border border-white/10 bg-dark-900/60 px-2 py-0.5 text-xs font-medium ${
-          isConfiguredChain ? "text-brand-green" : "text-brand-accent"
+        className={`inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-card)] px-2 py-0.5 text-xs font-medium ${
+          isConfiguredChain ? "text-[var(--uniswap-green)]" : "text-[var(--uniswap-accent)]"
         }`}
       >
         <span
           className={`h-1.5 w-1.5 rounded-full ${
-            isConfiguredChain ? "bg-brand-green" : "bg-brand-accent"
+            isConfiguredChain ? "bg-[var(--uniswap-green)]" : "bg-[var(--uniswap-accent)]"
           }`}
         />
         {chainName?.split(" ").slice(0, 2).join(" ")}
       </span>
-      {!isConfiguredChain && <AlertCircle className="h-3 w-3 text-brand-accent" />}
+      {!isConfiguredChain && <AlertCircle className="h-3 w-3 text-[var(--uniswap-accent)]" />}
     </div>
   );
 }
