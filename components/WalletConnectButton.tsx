@@ -123,7 +123,11 @@ export function WalletConnectButton({
           if (deepLink) {
             window.location.href = deepLink;
           }
+          // Don't close modal - show "Open Phantom..." loading state
+          // initiateMobilePhantomConnect sets optimistic state in usePhantomSolana
           initiateMobilePhantomConnect();
+          // Don't return here - let the modal stay open to show "Open Phantom..." state
+          // The usePhantomSolana hook will detect connection when user returns from Phantom app
           return;
         }
 
