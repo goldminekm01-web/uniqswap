@@ -2,7 +2,6 @@
 
 import { Header } from "@/components/Header";
 import { SwapCard } from "@/components/SwapCard";
-import { HowItWorks } from "@/components/HowItWorks";
 import { TokenDetails } from "@/components/TokenDetails";
 
 export default function HomePage() {
@@ -13,10 +12,6 @@ export default function HomePage() {
       <main className="flex flex-1 flex-col items-center gap-6 px-4 py-8">
         <div className="w-full max-w-lg">
           <SwapCard />
-        </div>
-
-        <div className="w-full max-w-lg">
-          <HowItWorks />
         </div>
 
         <div className="w-full max-w-lg">
