@@ -96,6 +96,15 @@ export function SwapCard() {
     return calculateSwap(num, fromToken, toToken);
   }, [inputAmount, fromToken, toToken]);
 
+  // Check if user has insufficient balance for the "from" token
+  const insufficientBalance = useMemo(() => {
+    if (!isConnected || !fromData.balanceFormatted) return false;
+    const inputNum = parseFloat(inputAmount);
+    if (isNaN(inputNum) || inputNum <= 0) return false;
+    const bal = parseFloat(fromData.balanceFormatted);
+    return inputNum > bal;
+  }, [isConnected, fromData.balanceFormatted, inputAmount]);
+
   // Price impact color
   const priceImpact = quote?.priceImpact ?? 0;
   const priceImpactColor =
@@ -137,12 +146,10 @@ export function SwapCard() {
     if (!isConnected) return;
     if (!quote || quote.inputAmount <= 0) return;
 
-    // Check if user has enough balance (when balance is available)
-    if (fromData.balanceFormatted) {
-      if (
-        parseFloat(quote.inputAmount.toFixed(8)) >
-        parseFloat(fromData.balanceFormatted)
-      ) {
+    // Check if user has enough balance
+    if (isConnected) {
+      const fromBalance = parseFloat(fromData.balanceFormatted || "0");
+      if (parseFloat(quote.inputAmount.toFixed(8)) > fromBalance) {
         alert("Insufficient balance");
         return;
       }
@@ -204,7 +211,12 @@ export function SwapCard() {
           </>
         );
       default:
-        return (
+        return !isConnected ? (
+          <>
+            <Zap className="h-4 w-4" />
+            <span>Connect Wallet</span>
+          </>
+        ) : (
           <>
             <Zap className="h-4 w-4" />
             <span>Swap</span>
@@ -280,12 +292,13 @@ export function SwapCard() {
           />
         </div>
 
-        {fromData.balanceFormatted && (
+        {isConnected && (
           <div className="mt-1 text-right text-xs text-[var(--color-text-tertiary)]">
-            {parseFloat(fromData.balanceFormatted).toLocaleString(undefined, {
-              maximumFractionDigits: 4,
-            })}{" "}
-            {fromTokenConfig.symbol} available
+            {fromData.isLoading
+              ? "Loading balance…"
+              : `${parseFloat(fromData.balanceFormatted || "0").toLocaleString(undefined, {
+                  maximumFractionDigits: 4,
+                })} ${fromTokenConfig.symbol} available`}
           </div>
         )}
 
@@ -414,13 +427,25 @@ export function SwapCard() {
           </div>
         )}
 
+        {/* Insufficient balance warning */}
+        {isConnected && insufficientBalance && (
+          <div className="mb-3 rounded-lg border border-[var(--uniswap-red)]/30 bg-[var(--uniswap-red)]/5 p-3 text-center">
+            <p className="text-sm text-[var(--uniswap-red)]">
+              Insufficient {fromTokenConfig.symbol} balance
+            </p>
+          </div>
+        )}
+
         {/* Swap / Connect Button */}
         <button
           onClick={handleSwap}
           disabled={
             txStatus === "signing" ||
             txStatus === "pending" ||
-            !isConnected
+            !isConnected ||
+            !quote ||
+            insufficientBalance ||
+            fromData.isLoading
           }
           className={`relative flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${
             !isConnected

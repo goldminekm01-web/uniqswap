@@ -115,7 +115,7 @@ export const config = createConfig({
   chains: [mainnet, sepolia],
   connectors: getConnectors(),
   transports: {
-    [mainnet.id]: http(),
+    [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
     [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com"),
   },
   ssr: true,

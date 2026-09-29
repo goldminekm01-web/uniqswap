@@ -46,10 +46,10 @@ export function useTokenInfo(tokenKey: TokenKey): DetectedTokenInfo {
 
     const balance = balanceRaw !== undefined
       ? formatBalance(balanceRaw, decimals)
-      : null;
+      : isConnected ? "0" : null;
     const balanceFormatted = balanceRaw !== undefined
       ? formatDisplayBalance(balanceRaw, decimals)
-      : null;
+      : isConnected ? "0" : null;
 
     return {
       name: token.name,
@@ -160,11 +160,11 @@ export function useTokenInfo(tokenKey: TokenKey): DetectedTokenInfo {
 
   const balance = balanceRaw !== undefined
     ? formatBalance(balanceRaw, resolvedDecimals)
-    : null;
+    : isConnected ? "0" : null;
 
   const balanceFormatted = balanceRaw !== undefined
     ? formatDisplayBalance(balanceRaw, resolvedDecimals)
-    : null;
+    : isConnected ? "0" : null;
 
   return {
     name: name !== undefined ? String(name) : null,
