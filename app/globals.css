@@ -7,15 +7,15 @@
     --uniswap-green: #00ff9d;
     --uniswap-red: #ff3b3b;
     --uniswap-accent: #e8a020;
-    --color-bg: #ffffff;
-    --color-bg-card: #ffffff;
-    --color-bg-elevated: #f9fafb;
-    --color-border: #e0e0e0;
-    --color-border-strong: #cbcbcb;
-    --color-text: #1c1c1e;
-    --color-text-secondary: #6c6c73;
-    --color-text-tertiary: #9b9b9f;
-    --color-input-bg: #f9fafb;
+    --color-bg: #000000;
+    --color-bg-card: #0a0a0a;
+    --color-bg-elevated: #1a1a1a;
+    --color-border: #2a2a2a;
+    --color-border-strong: #3a3a3a;
+    --color-text: #ffffff;
+    --color-text-secondary: #a0a0a0;
+    --color-text-tertiary: #6c6c6c;
+    --color-input-bg: #1a1a1a;
   }
 
   html {
@@ -27,9 +27,9 @@
   body {
     font-family: "Inter", system-ui, sans-serif;
     background:
-      radial-gradient(ellipse at top, rgba(118, 71, 234, 0.04) 0%, transparent 40%),
-      radial-gradient(ellipse at bottom right, rgba(0, 195, 255, 0.03) 0%, transparent 40%),
-      #f4f4f5;
+      radial-gradient(ellipse at top, rgba(118, 71, 234, 0.08) 0%, transparent 40%),
+      radial-gradient(ellipse at bottom right, rgba(0, 195, 255, 0.06) 0%, transparent 40%),
+      #000000;
     color: var(--color-text);
     -webkit-tap-highlight-color: transparent;
   }
@@ -59,29 +59,29 @@
 /* ===== Components ===== */
 @layer components {
   .glass {
-    background: rgba(255, 255, 255, 0.7);
+    background: rgba(10, 10, 10, 0.7);
     backdrop-filter: blur(16px);
-    border: 1px solid rgba(224, 224, 224, 0.6);
+    border: 1px solid rgba(42, 42, 42, 0.6);
   }
 
   .glass-hover {
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(10, 10, 10, 0.8);
     backdrop-filter: blur(16px);
-    border: 1px solid rgba(224, 224, 224, 0.6);
+    border: 1px solid rgba(42, 42, 42, 0.6);
     transition: all 300ms ease;
   }
   .glass-hover:hover {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: rgba(204, 204, 204, 0.8);
+    background: rgba(10, 10, 10, 0.9);
+    border-color: rgba(58, 58, 58, 0.8);
   }
 
   .glass-card {
     border-radius: 1rem;
-    border: 1px solid rgba(224, 224, 224, 0.6);
-    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(42, 42, 42, 0.6);
+    background: rgba(10, 10, 10, 0.8);
     padding: 1.5rem;
     backdrop-filter: blur(16px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
   }
 
   .neon-button {
