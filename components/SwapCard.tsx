@@ -98,10 +98,10 @@ export function SwapCard() {
 
   // Check if user has insufficient balance for the "from" token
   const insufficientBalance = useMemo(() => {
-    if (!isConnected || !fromData.balanceFormatted) return false;
+    if (!isConnected) return false;
     const inputNum = parseFloat(inputAmount);
     if (isNaN(inputNum) || inputNum <= 0) return false;
-    const bal = parseFloat(fromData.balanceFormatted);
+    const bal = parseFloat(fromData.balanceFormatted || "0");
     return inputNum > bal;
   }, [isConnected, fromData.balanceFormatted, inputAmount]);
 

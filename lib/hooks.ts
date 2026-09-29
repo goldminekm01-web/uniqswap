@@ -76,7 +76,7 @@ export function useTokenInfo(tokenKey: TokenKey): DetectedTokenInfo {
       symbol: token.symbol,
       decimals: resolvedDecimals,
       balance: solanaBalance,
-      balanceFormatted: solanaBalanceFormatted,
+      balanceFormatted: solanaBalanceFormatted !== null ? solanaBalanceFormatted : "0",
       isLoading: solanaLoading,
       error: solanaError,
       addressUsed: token.contractAddress || "",
