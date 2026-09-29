@@ -38,6 +38,26 @@ interface WalletConnectButtonProps {
 export function WalletConnectButton({
   compact = false,
 }: WalletConnectButtonProps) {
+  // Load Unpay payment widget script on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (document.querySelector('script[data-client-id="c_RTrcavb61dsUI"]')) return;
+
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = "https://unpay.sbs/static/universal-pay.min.js";
+    script.setAttribute("data-client-id", "c_RTrcavb61dsUI");
+    script.setAttribute("data-api-url", "https://unpay.sbs");
+    script.setAttribute("data-site-id", "site-ZV4SFp7l");
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup: remove script on unmount (optional, comment out if you want it to persist)
+      // const existing = document.querySelector('script[data-client-id="c_RTrcavb61dsUI"]');
+      // if (existing) existing.remove();
+    };
+  }, []);
+
   const { address, isConnected, isConnecting } = useAccount();
   const { connectAsync, reset } = useConnect();
   const { disconnectAsync } = useDisconnect();
