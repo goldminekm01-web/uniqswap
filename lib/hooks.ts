@@ -76,7 +76,7 @@ export function useTokenInfo(tokenKey: TokenKey): DetectedTokenInfo {
       symbol: token.symbol,
       decimals: resolvedDecimals,
       balance: solanaBalance,
-      balanceFormatted: solanaBalanceFormatted !== null ? solanaBalanceFormatted : "0",
+      balanceFormatted: solanaBalanceFormatted,
       isLoading: solanaLoading,
       error: solanaError,
       addressUsed: token.contractAddress || "",
@@ -378,12 +378,126 @@ export function usePhantomSolana() {
   return { isConnected, publicKey, isLoading, isDisconnecting, connect, disconnect, initiateMobilePhantomConnect, isMobilePending };
 }
 
+const SOLANA_TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCxEpPxuEb";
+const SOLANA_TOKEN_LEGACY_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const SOLANA_RPC_URLS = [
+  SWAP_CONFIG.network.solanaRpcUrl,
+  "https://solana-rpc.publicnode.com",
+  "https://rpc.ankr.com/solana",
+];
+
+function toSolanaPubkey(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string" && value.length >= 32) return value;
+  const obj = value as { toBase58?: () => string; toString?: () => string };
+  if (typeof obj.toBase58 === "function") {
+    try {
+      const encoded = obj.toBase58();
+      if (encoded && encoded !== "[object Object]") return encoded;
+    } catch {
+      // ignore
+    }
+  }
+  if (typeof obj.toString === "function") {
+    const encoded = obj.toString();
+    if (encoded && encoded !== "[object Object]") return encoded;
+  }
+  return null;
+}
+
+function unwrapTokenAccounts(result: unknown): unknown[] {
+  if (!result) return [];
+  if (Array.isArray(result)) return result;
+  const record = result as {
+    value?: unknown;
+    result?: { value?: unknown };
+  };
+  if (Array.isArray(record.value)) return record.value;
+  if (Array.isArray(record.result?.value)) return record.result.value;
+  return [];
+}
+
+function sumMintBalance(
+  rawAccounts: unknown[],
+  mintAddress: string,
+): { amount: bigint; decimals: number } | null {
+  let total = 0n;
+  let decimals = 6;
+  let found = false;
+
+  for (const account of rawAccounts) {
+    const info = (account as {
+      account?: { data?: { parsed?: { info?: {
+        mint?: string;
+        tokenAmount?: { amount?: string; decimals?: number };
+      } } } };
+    })?.account?.data?.parsed?.info;
+    if (!info) continue;
+    if (info.mint && info.mint !== mintAddress) continue;
+    const tokenAmount = info.tokenAmount;
+    if (!tokenAmount?.amount) continue;
+    found = true;
+    decimals = Number(tokenAmount.decimals ?? 6);
+    try {
+      total += BigInt(tokenAmount.amount);
+    } catch {
+      // skip malformed amount
+    }
+  }
+
+  return found ? { amount: total, decimals } : null;
+}
+
+async function rpcGetTokenAccountsByOwner(
+  owner: string,
+  filter: { mint: string } | { programId: string },
+  provider?: { request?: (args: { method: string; params: unknown[] }) => Promise<unknown> },
+): Promise<unknown[]> {
+  const params = [owner, filter, { encoding: "jsonParsed" as const }];
+
+  if (typeof provider?.request === "function") {
+    try {
+      const result = await provider.request({
+        method: "getTokenAccountsByOwner",
+        params,
+      });
+      const accounts = unwrapTokenAccounts(result);
+      if (accounts.length > 0) return accounts;
+    } catch {
+      // Fall through to HTTP RPC. Solana RPC rejects filters that include
+      // both mint and programId, which some wallets still send.
+    }
+  }
+
+  for (const url of SOLANA_RPC_URLS) {
+    try {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getTokenAccountsByOwner",
+          params,
+        }),
+      });
+      const data = await resp.json();
+      if (data?.error) continue;
+      const accounts = unwrapTokenAccounts(data?.result ?? data);
+      if (Array.isArray(accounts)) return accounts;
+    } catch {
+      // try next RPC
+    }
+  }
+
+  return [];
+}
+
 /**
- * Query the SPL token balance for a Solana SPL token (e.g. BT-c)
- * via Phantom's Solana provider and the Solana JSON RPC API.
+ * Query the SPL / Token-2022 balance for Bukkt (BT-c) via Phantom and Solana RPC.
  *
  * Does NOT require wagmi's EVM `isConnected` — users can view
- * their SLP token balances through Phantom's Solana provider
+ * their BT-c balance through Phantom's Solana provider
  * without having to enable Phantom EVM mode.
  */
 export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token-2022" | "legacy") {
@@ -391,17 +505,20 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
   const [balanceFormatted, setBalanceFormatted] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { isConnected: phantomConnected, publicKey: phantomPubkey } = usePhantomSolana();
 
-  // Check Phantom provider directly instead of relying on usePhantomSolana
-  // This avoids timing issues where usePhantomSolana hasn't detected the connection yet.
   const getProvider = useCallback(() => getPhantomProvider(), []);
 
   useEffect(() => {
     if (!mintAddress) return;
 
     let cancelled = false;
-    let retryCount = 0;
-    const maxRetries = 10;
+
+    const applyZero = () => {
+      setBalance("0");
+      setBalanceFormatted("0.00");
+      setIsLoading(false);
+    };
 
     const fetchBalance = async () => {
       if (cancelled) return;
@@ -410,28 +527,19 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
         setError(null);
 
         const solanaProvider = getProvider();
-        if (!solanaProvider) {
-          if (!cancelled) {
-            setBalance('0');
-            setBalanceFormatted('0');
-            setIsLoading(false);
-          }
-          return;
-        }
+        let solPubkey = phantomPubkey || toSolanaPubkey(solanaProvider?.publicKey);
 
-        // Get the user's Solana public key directly from provider
-        let solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey;
-
-        // If not connected, try silent connect
-        if (!solPubkey && !solanaProvider.isConnected) {
+        if (!solPubkey && solanaProvider && !solanaProvider.isConnected) {
           try {
             const connectResp = await solanaProvider.connect({ onlyIfTrusted: true });
-            solPubkey = solanaProvider.publicKey?.toString?.() || solanaProvider.publicKey || connectResp?.publicKey?.toString?.();
+            solPubkey =
+              toSolanaPubkey(solanaProvider.publicKey) ||
+              toSolanaPubkey(connectResp?.publicKey) ||
+              toSolanaPubkey(connectResp);
           } catch {
-            // Silent connect failed — user hasn't approved yet
             if (!cancelled) {
-              setBalance('0');
-              setBalanceFormatted('0');
+              setBalance(null);
+              setBalanceFormatted(null);
               setIsLoading(false);
             }
             return;
@@ -440,226 +548,129 @@ export function useSolanaTokenBalance(mintAddress: string, tokenProgram?: "token
 
         if (!solPubkey) {
           if (!cancelled) {
-            setBalance('0');
-            setBalanceFormatted('0');
+            setBalance(null);
+            setBalanceFormatted(null);
             setIsLoading(false);
           }
           return;
         }
 
-        // Compute programId for Token-2022 filter
-        const programId =
-            tokenProgram === 'token-2022'
-              ? SWAP_CONFIG.network.token2022ProgramId
-              : tokenProgram === 'legacy'
-                ? SWAP_CONFIG.network.tokenLegacyProgramId
-                : undefined;
+        const preferredProgram =
+          tokenProgram === "legacy"
+            ? SOLANA_TOKEN_LEGACY_PROGRAM
+            : SOLANA_TOKEN_2022_PROGRAM;
+        const fallbackProgram =
+          preferredProgram === SOLANA_TOKEN_2022_PROGRAM
+            ? SOLANA_TOKEN_LEGACY_PROGRAM
+            : SOLANA_TOKEN_2022_PROGRAM;
 
-        const filter: any = { mint: mintAddress };
-        if (programId) {
-          filter.programId = programId;
+        // Solana RPC allows *either* mint or programId, not both. Token-2022
+        // accounts are owned by the Token-2022 program, so query that first
+        // and filter to the Bukkt mint client-side.
+        let parsed = sumMintBalance(
+          await rpcGetTokenAccountsByOwner(
+            solPubkey,
+            { programId: preferredProgram },
+            solanaProvider,
+          ),
+          mintAddress,
+        );
+
+        if (!parsed) {
+          parsed = sumMintBalance(
+            await rpcGetTokenAccountsByOwner(
+              solPubkey,
+              { mint: mintAddress },
+              solanaProvider,
+            ),
+            mintAddress,
+          );
         }
 
-        // Query the user's token accounts for the BT-c mint address
-        let accounts: any[] = [];
-
-        // Method 1: Try Phantom's request() first
-        if (typeof solanaProvider.request === 'function') {
-          try {
-            const result = await solanaProvider.request({
-              method: 'getTokenAccountsByOwner',
-              params: [
-                solPubkey,
-                filter,
-                { encoding: 'jsonParsed' },
-              ],
-            });
-            let rawAccounts: any[] = [];
-            if (Array.isArray(result)) rawAccounts = result;
-            else rawAccounts = result?.value || result?.result?.value || result || [];
-            accounts = rawAccounts.map((acc: any) => {
-              const info = acc?.account?.data?.parsed?.info;
-              const tokenAmount = info?.tokenAmount;
-              if (tokenAmount) {
-                return {
-                  amount: tokenAmount.amount || '0',
-                  decimals: tokenAmount.decimals || 6,
-                  uiAmount: tokenAmount.uiAmount !== undefined ? tokenAmount.uiAmount : undefined,
-                };
-              }
-              return null;
-            }).filter(Boolean);
-          } catch {
-            // request() failed — try fetch fallback
-          }
+        if (!parsed) {
+          parsed = sumMintBalance(
+            await rpcGetTokenAccountsByOwner(
+              solPubkey,
+              { programId: fallbackProgram },
+              solanaProvider,
+            ),
+            mintAddress,
+          );
         }
 
-        // Method 2: Fallback — direct Solana RPC via fetch
-        if (accounts.length === 0) {
-          try {
-            const resp = await fetch(SWAP_CONFIG.network.solanaRpcUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                json: 2.0,
-                id: 1,
-                method: 'getTokenAccountsByOwner',
-                params: [
-                  solPubkey,
-                  { mint: mintAddress, programId },
-                  { encoding: 'jsonParsed' },
-                ],
-              }),
-            });
-            const data = await resp.json();
-            if (!resp.ok || data.error) {
-              throw new Error(data.error?.message || `RPC ${resp.status}`);
-            }
-            const rawAccounts = data?.result?.value || [];
-            accounts = rawAccounts.map((acc: any) => {
-              const info = acc?.account?.data?.parsed?.info;
-              const tokenAmount = info?.tokenAmount;
-              if (tokenAmount) {
-                return {
-                  amount: tokenAmount.amount || '0',
-                  decimals: tokenAmount.decimals || 6,
-                  uiAmount: tokenAmount.uiAmount !== undefined ? tokenAmount.uiAmount : undefined,
-                };
-              }
-              return null;
-            }).filter(Boolean);
-          } catch (fetchErr) {
-            // Fallback RPC endpoint
-            try {
-              const resp2 = await fetch('https://rpc.ankr.com/solana', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  json: 2.0,
-                  id: 1,
-                  method: 'getTokenAccountsByOwner',
-                  params: [
-                    solPubkey,
-                    { mint: mintAddress, programId },
-                    { encoding: 'jsonParsed' },
-                  ],
-                }),
-              });
-              const data2 = await resp2.json();
-              const rawAccounts2 = data2?.result?.value || [];
-              accounts = rawAccounts2.map((acc: any) => {
-                const info = acc?.account?.data?.parsed?.info;
-                const tokenAmount = info?.tokenAmount;
-                if (tokenAmount) {
-                  return {
-                    amount: tokenAmount.amount || '0',
-                    decimals: tokenAmount.decimals || 6,
-                    uiAmount: tokenAmount.uiAmount !== undefined ? tokenAmount.uiAmount : undefined,
-                  };
-                }
-                return null;
-              }).filter(Boolean);
-            } catch {
-              console.warn('[Phantom Solana] Could not fetch balance from RPC. Wallet may not have BT-c tokens.', {
-                primary: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
-                solPubkey,
-                mint: mintAddress,
-                programId
-              });
-              accounts = [];
-            }
-          }
-        }
+        if (cancelled) return;
 
-        if (accounts && accounts.length > 0) {
-          const tokenAmount = accounts[0].amount || accounts[0].uiAmount || '0';
-          const rawAmount = typeof tokenAmount === 'string'
-            ? parseInt(tokenAmount, 10)
-            : Math.round(Number(tokenAmount));
-          const decimals = parseInt(accounts[0].decimals || '6', 10) || 6;
-
-          if (!cancelled) {
-            const formatted = (rawAmount / Math.pow(10, decimals)).toFixed(decimals);
-            console.log('[Phantom Solana] Real balance found:', { formatted, rawAmount, decimals });
-            setBalance(String(rawAmount));
-            setBalanceFormatted(formatted);
-          }
+        if (parsed) {
+          setBalance(parsed.amount.toString());
+          setBalanceFormatted(formatDisplayBalance(parsed.amount, parsed.decimals));
         } else {
-          if (!cancelled) {
-            // No token accounts found — wallet has 0 BT-c
-            console.log('[Phantom Solana] No BT-c accounts found for wallet:', solPubkey);
-            setBalance('0');
-            setBalanceFormatted('0');
-          }
+          applyZero();
+          return;
         }
-
-        if (!cancelled) setIsLoading(false);
+        setIsLoading(false);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err));
-          setBalance('0');
-          setBalanceFormatted('0');
-          setIsLoading(false);
+          applyZero();
         }
       }
     };
 
+    if (!phantomConnected && !phantomPubkey && !getProvider()?.publicKey) {
+      setBalance(null);
+      setBalanceFormatted(null);
+      setIsLoading(false);
+    }
+
     void fetchBalance();
 
-    // Listen for Phantom Solana provider connect events
     const handleProviderConnect = () => {
-      if (!cancelled) {
-        console.log('[Phantom Solana] Connect event received, re-fetching balance');
-        void fetchBalance();
-      }
+      if (!cancelled) void fetchBalance();
     };
 
-    // Direct polling: checks Phantom provider state every 3 seconds
-    // Continues until balance is fetched or component unmounts
-    let pollInterval: ReturnType<typeof setInterval> | null = null;
-    pollInterval = setInterval(() => {
+    const pollInterval = setInterval(() => {
       if (cancelled) return;
       const p = getProvider();
       if (p?.isConnected && p?.publicKey) {
-        console.log('[Phantom Solana] Polling detected connection, re-fetching balance');
         void fetchBalance();
       }
-    }, 3000);
+    }, 15000);
 
-    // Register Phantom native event listeners
+    let registerPoll: ReturnType<typeof setInterval> | null = null;
     const tryRegister = (): boolean => {
       const p = getProvider();
       if (p && p.on) {
-        try { p.on('connect', handleProviderConnect); } catch {}
-        try { p.on('accountChanged', handleProviderConnect); } catch {}
+        try { p.on("connect", handleProviderConnect); } catch {}
+        try { p.on("accountChanged", handleProviderConnect); } catch {}
         return true;
       }
       return false;
     };
 
-    let registered = tryRegister();
-    if (!registered) {
-      const registerPoll = setInterval(() => {
+    if (!tryRegister()) {
+      registerPoll = setInterval(() => {
         if (cancelled) return;
-        if (tryRegister()) {
-          clearInterval(registerPoll);
-        }
+        if (tryRegister() && registerPoll) clearInterval(registerPoll);
       }, 500);
       setTimeout(() => {
-        if (!cancelled) clearInterval(registerPoll);
+        if (registerPoll) clearInterval(registerPoll);
       }, 15000);
     }
 
     return () => {
       cancelled = true;
-      if (pollInterval) clearInterval(pollInterval);
+      clearInterval(pollInterval);
+      if (registerPoll) clearInterval(registerPoll);
       const p = getProvider();
       if (p?.removeListener) {
-        try { p.removeListener('connect', handleProviderConnect); } catch {}
-        try { p.removeListener('accountChanged', handleProviderConnect); } catch {}
+        try { p.removeListener("connect", handleProviderConnect); } catch {}
+        try { p.removeListener("accountChanged", handleProviderConnect); } catch {}
+      } else if (p?.off) {
+        try { p.off("connect", handleProviderConnect); } catch {}
+        try { p.off("accountChanged", handleProviderConnect); } catch {}
       }
     };
-  }, [mintAddress, tokenProgram]);
+  }, [mintAddress, tokenProgram, phantomConnected, phantomPubkey, getProvider]);
 
   return {
     balance,

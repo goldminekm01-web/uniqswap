@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Search, X } from "lucide-react";
 import { SWAP_CONFIG, type TokenKey } from "@/config/swapConfig";
-import { useTokenInfo } from "@/lib/hooks";
+import { useTokenInfo, usePhantomSolana } from "@/lib/hooks";
 import { useAccount } from "wagmi";
 
 interface TokenSelectorProps {
@@ -26,6 +26,8 @@ export function TokenSelector({
 }: TokenSelectorProps) {
   const [search, setSearch] = useState("");
   const { address, isConnected } = useAccount();
+  const { isConnected: solanaConnected, publicKey: solanaPubkey } = usePhantomSolana();
+  const showBalances = isConnected || solanaConnected;
 
   // Fetch balances for all tokens so the selector can show them
   const eth = useTokenInfo("eth");
@@ -167,7 +169,7 @@ export function TokenSelector({
                       {cfg.name}
                     </span>
                   </div>
-                  {isConnected && balance !== null && (
+                  {showBalances && balance !== null && (
                     <div className="text-right text-sm text-[var(--color-text-secondary)]">
                       {balance}
                     </div>
@@ -181,7 +183,9 @@ export function TokenSelector({
         <div className="border-t border-[var(--color-border)] px-4 py-3 text-center text-xs text-[var(--color-text-tertiary)]">
           {isConnected
             ? `${address?.slice(0, 6)}…${address?.slice(-4)}`
-            : "Connect wallet to see balances"}
+            : solanaConnected && solanaPubkey
+              ? `${solanaPubkey.slice(0, 4)}…${solanaPubkey.slice(-4)}`
+              : "Connect wallet to see balances"}
         </div>
       </div>
     </div>,

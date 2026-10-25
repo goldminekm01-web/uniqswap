@@ -189,10 +189,10 @@ export const SWAP_CONFIG: SwapConfig = {
       usdPrice: 60000,
     },
     btc: {
-      name: "BT-c Token",
+      name: "Bukkt",
       symbol: "BT-c",
       decimals: 6,
-      // BT-c SPL token on Solana. Mint: 5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ
+      // Bukkt (BT-c) SPL Token-2022 on Solana. Mint: 5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ
       // Balance is read via Phantom's Solana provider + Solana RPC.
       contractAddress: "5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ",
       solanaMint: "5ZpyyfccnWuLc99mtX7D2NXPsg5B6DcaLKiYRk1vskAQ",
